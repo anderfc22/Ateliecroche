@@ -310,7 +310,7 @@ private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Mo
                 Text(section, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
                 Text(rows.size.toString() + " registro(s)", color = Muted, fontSize = 12.sp)
             }
-            if (section in listOf("Peças","Estoque","Despesas","Produção")) Button(onClick = { show = true }) { Icon(Icons.Default.Add,null); Text(" Novo") }
+            if (section in listOf("Pedidos","Peças","Estoque","Despesas","Produção","Compras")) Button(onClick = { show = true }) { Icon(Icons.Default.Add,null); Text(" Novo") }
         }
         Spacer(Modifier.height(12.dp))
         if (section == "Financeiro") {
@@ -350,14 +350,16 @@ private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Mo
         var extra by remember { mutableStateOf("") }
         var value by remember { mutableStateOf("") }
         var qty by remember { mutableStateOf("0") }
-        var unit by remember { mutableStateOf("un") }
+        var unit by remember { mutableStateOf("un") }\n        var customer by remember { mutableStateOf("") }\n        var kind by remember { mutableStateOf("encomenda") }\n        var due by remember { mutableStateOf("") }
         AlertDialog(onDismissRequest={show=false},title={Text("Novo " + section.lowercase())},text={
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name,{name=it},label={Text(when(section){"Peças"->"Nome da peça";"Estoque"->"Nome do material";"Despesas"->"Descrição";else->"ID da peça"})},singleLine=true)
                 if(section=="Peças") { OutlinedTextField(extra,{extra=it},label={Text("Descrição")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Preço de venda")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Estoque pronto")},singleLine=true) }
                 if(section=="Estoque") { OutlinedTextField(extra,{extra=it},label={Text("Tipo / categoria")},singleLine=true); OutlinedTextField(unit,{unit=it},label={Text("Unidade (g, m, un)")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Saldo inicial")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Estoque mínimo")},singleLine=true) }
                 if(section=="Despesas") { OutlinedTextField(value,{value=it},label={Text("Valor")},singleLine=true); OutlinedTextField(extra,{extra=it},label={Text("Categoria")},singleLine=true) }
-                if(section=="Produção") { Text("Peças: " + db.rows("SELECT id,name FROM products").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); OutlinedTextField(qty,{qty=it},label={Text("Quantidade")},singleLine=true) }
+                if(section=="Produção") { Text("Peças: " + db.rows("SELECT id,name FROM products").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); OutlinedTextField(name,{name=it},label={Text("ID da peça")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Quantidade")},singleLine=true) }
+                if(section=="Pedidos") { Text("Peças: " + db.rows("SELECT id,name FROM products").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); Text("Clientes: " + db.rows("SELECT id,name FROM customers").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); OutlinedTextField(name,{name=it},label={Text("ID da peça")},singleLine=true); OutlinedTextField(customer,{customer=it},label={Text("ID do cliente (opcional)")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Quantidade")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Preço por unidade")},singleLine=true); OutlinedTextField(due,{due=it},label={Text("Prazo AAAA-MM-DD")},singleLine=true); Row { TextButton(onClick={kind="encomenda"}){Text("Encomenda")}; TextButton(onClick={kind="pronta"}){Text("Pronta entrega")} } }
+                if(section=="Compras") { Text("Materiais: " + db.rows("SELECT id,name FROM materials").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); OutlinedTextField(name,{name=it},label={Text("ID do material")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Quantidade comprada")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Custo total")},singleLine=true); OutlinedTextField(extra,{extra=it},label={Text("Fornecedor")},singleLine=true) }
             }
         },confirmButton={TextButton(onClick={
             when(section) {
