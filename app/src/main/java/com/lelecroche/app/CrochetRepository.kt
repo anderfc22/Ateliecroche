@@ -170,6 +170,21 @@ class CrochetRepository(private val helper: AppDatabase) {
         require(pending.isNotEmpty()) { "Esta encomenda não tem peças em produção" }; pending.forEach { (id, status) -> setProductionStatusInternal(db, id, CrochetEngine.productionNext(status)) }
     }
 
+    fun saveCustomer(id: Long?, name: String, phone: String = "", city: String = "", notes: String = ""): Long = transaction { db ->
+        require(name.isNotBlank()) { "Informe o nome do cliente" }
+        val content = values("name" to name.trim(), "phone" to phone.take(40), "city" to city.take(80), "notes" to notes.take(255))
+        if (id == null) db.insertOrThrow("customers", null, content) else {
+            db.rawQuery("SELECT id FROM customers WHERE id=?", arrayOf(id.toString())).use { require(it.moveToFirst()) { "Cliente não encontrado" } }
+            db.update("customers", content, "id=?", arrayOf(id.toString())); id
+        }
+    }
+
+    fun deleteCustomer(id: Long) = transaction { db ->
+        val count = db.rawQuery("SELECT COUNT(*) n FROM orders WHERE customer_id=?", arrayOf(id.toString())).use { c -> c.moveToFirst(); c.getInt(0) }
+        require(count == 0) { "Cliente tem pedidos; não pode ser excluído" }
+        db.delete("customers", "id=?", arrayOf(id.toString()))
+    }
+
     data class MaterialDemand(val material: CrochetEngine.Material, val required: Double, val shortage: Double, val blockedOrderIds: List<Long>)
 
     fun saveMaterial(id: Long?, name: String, kind: String = "fio", color: String = "", brand: String = "", unit: String, metersPerKg: Double = 0.0, minimumStock: Double = 0.0): Long = transaction { db ->
