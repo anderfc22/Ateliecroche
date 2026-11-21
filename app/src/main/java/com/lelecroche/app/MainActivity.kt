@@ -107,6 +107,17 @@ private fun LeleCrocheApp() {
 
 @Composable
 private fun HomeScreen(modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val db = remember { AppDatabase(context.applicationContext) }
+    val openOrders = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto'").toInt()
+    val requests = db.scalar("SELECT COUNT(*) FROM orders WHERE status='solicitado'").toInt()
+    val lowMaterials = db.scalar("SELECT COUNT(*) FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock").toInt()
+    val production = db.scalar("SELECT COUNT(*) FROM production_orders WHERE status IN ('fila','andamento','acabamento')").toInt()
+    val readyPieces = db.scalar("SELECT COALESCE(SUM(stock),0) FROM products WHERE active=1")
+    val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
+    val cashIn = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes")
+    val cashOut = db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
+    val cash = cashIn - cashOut
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(
@@ -114,28 +125,43 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text("ATELIÊ ARTESANAL", color = PrimaryGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Text("Olá! Que bom ter você por aqui.", color = TextDark, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
-                Text("Seu ateliê, organizado em um só lugar.", color = Muted, fontSize = 13.sp)
+                Text("Seu ateliê, em ordem.", color = TextDark, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
+                Text("Acompanhe pedidos, materiais e produção em um só lugar.", color = Muted, fontSize = 13.sp)
             }
         }
         item { Text("Visão geral", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Pedidos", "—", "Em acompanhamento", Modifier.weight(1f))
-                MetricCard("Estoque baixo", "—", "Materiais para repor", Modifier.weight(1f))
+                MetricCard("Encomendas abertas", openOrders.toString(), "Em acompanhamento", Modifier.weight(1f))
+                MetricCard("Estoque baixo", lowMaterials.toString(), "Materiais para repor", Modifier.weight(1f))
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("A receber", "R$ —", "Pagamentos pendentes", Modifier.weight(1f))
-                MetricCard("Produção", "—", "Peças em andamento", Modifier.weight(1f))
+                MetricCard("A receber", "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", receivable), "Saldo dos pedidos", Modifier.weight(1f))
+                MetricCard("Em produção", production.toString(), "Ordens em andamento", Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricCard("Peças prontas", String.format(java.util.Locale("pt","BR"), "%.0f", readyPieces), "Disponíveis no estoque", Modifier.weight(1f))
+                MetricCard("Caixa acumulado", "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", cash), "Pagamentos + receitas − saídas", Modifier.weight(1f))
+            }
+        }
+        if (requests > 0 || lowMaterials > 0) {
+            item {
+                Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Atenção", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    if (requests > 0) Text("$requests pedido(s) do catálogo aguardando confirmação", color = Terracotta, fontSize = 13.sp)
+                    if (lowMaterials > 0) Text("$lowMaterials material(is) com estoque baixo", color = Terracotta, fontSize = 13.sp)
+                }
             }
         }
         item {
             Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp)) {
-                Text("Comece por aqui", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text("Resumo do ateliê", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
-                Text("Use o menu inferior para acessar pedidos, peças, estoque e financeiro. Os dados serão conectados ao sistema original na próxima etapa.", color = Muted, fontSize = 13.sp)
+                Text("$openOrders encomenda(s) abertas · $production ordem(ns) em produção · $readyPieces peça(s) prontas.", color = Muted, fontSize = 13.sp)
             }
         }
     }
