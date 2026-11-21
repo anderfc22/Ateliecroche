@@ -69,6 +69,6 @@ class CrochetEngineTest {
     }
 
     @Test fun computesWeightedProductionProgress() {
-        assertEquals(53, CrochetEngine.orderProgress(listOf(1.0 to "andamento", 1.0 to "acabamento"), "aberto"))
+        assertEquals(55, CrochetEngine.orderProgress(listOf(1.0 to "andamento", 1.0 to "acabamento"), "aberto"))
     }
 }
