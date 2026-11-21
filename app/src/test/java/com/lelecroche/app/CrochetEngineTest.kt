@@ -71,4 +71,37 @@ class CrochetEngineTest {
     @Test fun computesWeightedProductionProgress() {
         assertEquals(55, CrochetEngine.orderProgress(listOf(1.0 to "andamento", 1.0 to "acabamento"), "aberto"))
     }
+
+    @Test fun manualPriceOverridesSuggestedPrice() {
+        val cost = CrochetEngine.CostBreakdown(8.0, 30.0, 2.0, 40.0)
+        val pricing = CrochetEngine.calculatePricing(cost, null, 100.0, 50.0)
+        assertEquals(80.0, pricing.suggestedPrice, 1e-9)
+        assertEquals(50.0, pricing.finalPrice, 1e-9)
+        assertEquals(20.0, pricing.realMarginPercent, 1e-9)
+    }
+
+    @Test fun aggregatesMaterialDemandForRepeatedRecipeLines() {
+        val yarn = CrochetEngine.Material(id = 7, name = "Fio", unit = "kg", averageCost = 10.0)
+        val recipe = listOf(
+            CrochetEngine.RecipeLine(yarn, 0.1, "kg"),
+            CrochetEngine.RecipeLine(yarn, 0.2, "kg")
+        )
+        assertEquals(0.9, CrochetEngine.productionDemand(recipe, 3.0)[7L]!!, 1e-9)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun blocksProductionWhenMaterialsAreInsufficient() {
+        val yarn = CrochetEngine.Material(id = 1, name = "Fio", unit = "kg", stock = 1.0)
+        CrochetEngine.validateProductionMaterials(mapOf(yarn to 1.5))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsDepositAboveOrderTotal() {
+        CrochetEngine.validateDeposit(101.0, 100.0)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsRefundAboveAmountPaid() {
+        CrochetEngine.validatePayment(-31.0, balance = 70.0, paid = 30.0)
+    }
 }
