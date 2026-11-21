@@ -117,9 +117,10 @@ private fun LeleCrocheApp() {
 private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val db = remember { AppDatabase(context.applicationContext) }
+    val repository = remember { CrochetRepository(db) }
     val openOrders = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto'").toInt()
     val requests = db.scalar("SELECT COUNT(*) FROM orders WHERE status='solicitado'").toInt()
-    val production = db.scalar("SELECT COUNT(*) FROM production_orders WHERE status IN ('fila','andamento','acabamento')").toInt()
+    val production = db.scalar("SELECT COUNT(DISTINCT o.id) FROM orders o WHERE o.status='aberto' AND EXISTS(SELECT 1 FROM production_orders p WHERE p.order_id=o.id AND p.status IN ('andamento','acabamento','pronta')) AND EXISTS(SELECT 1 FROM production_orders p WHERE p.order_id=o.id AND p.status IN ('fila','andamento','acabamento'))").toInt()
     val readyPieces = db.scalar("SELECT COALESCE(SUM(stock),0) FROM products WHERE active=1")
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
     val cashIn = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes")
@@ -130,13 +131,15 @@ private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Un
     val previousMonth = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(previousCalendar.time)
     val monthRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$monthKey'")
     val previousRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$previousMonth'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$previousMonth'")
-    val vsPrevious = if (previousRevenue > 0) ((monthRevenue - previousRevenue) / previousRevenue * 100).toInt() else null
+    val vsPrevious = if (previousRevenue > 0) kotlin.math.round((monthRevenue - previousRevenue) / previousRevenue * 100).toInt() else null
     val goal = db.rows("SELECT svalue FROM settings WHERE skey='monthly_goal'").firstOrNull()?.get("svalue")?.toDoubleOrNull() ?: 0.0
-    val goalPercent = if (goal > 0) (monthRevenue / goal * 100).toInt() else 0
-    val dueWeek = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)>=date('now','localtime') AND date(due_date)<=date('now','localtime','+7 day')").toInt()
+    val goalPercent = if (goal > 0) kotlin.math.round(monthRevenue / goal * 100).toInt() else 0
+    val dueWeek = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)<=date('now','localtime','+7 day')").toInt()
     val overdue = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)<date('now','localtime')").toInt()
-    val lowMaterials = db.rows("SELECT name FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock ORDER BY stock/min_stock LIMIT 3")
-    val lowCount = db.scalar("SELECT COUNT(*) FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock").toInt()
+    val lowByMinimum = db.rows("SELECT id,name FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock ORDER BY stock/min_stock")
+    val lowByDemand = repository.materialDemand().filter { it.shortage > CrochetEngine.EPSILON }.map { mapOf("id" to it.material.id.toString(), "name" to it.material.name) }
+    val lowMaterials = (lowByMinimum + lowByDemand).distinctBy { it["id"] }
+    val lowCount = lowMaterials.size
     val atelierName = db.rows("SELECT svalue FROM settings WHERE skey='atelier_name'").firstOrNull()?.get("svalue") ?: "Meu Ateliê"
     val dateLabel = java.text.SimpleDateFormat("d 'de' MMMM", java.util.Locale("pt","BR")).format(java.util.Date())
     val empty = db.scalar("SELECT (SELECT COUNT(*) FROM materials)+(SELECT COUNT(*) FROM products)+(SELECT COUNT(*) FROM orders)") == 0.0
