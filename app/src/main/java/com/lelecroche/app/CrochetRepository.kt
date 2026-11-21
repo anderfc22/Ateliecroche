@@ -103,6 +103,32 @@ class CrochetRepository(private val helper: AppDatabase) {
 
     fun previewProductPricing(productId: Long): CrochetEngine.ProductPricing = productPricing(helper.readableDatabase, productId)
 
+    fun duplicateProduct(productId: Long): Long = transaction { db ->
+        db.rawQuery("SELECT * FROM products WHERE id=?", arrayOf(productId.toString())).use { p ->
+            require(p.moveToFirst()) { "Peça não encontrada" }
+            val copyId = db.insertOrThrow("products", null, values(
+                "name" to (p.getString(p.getColumnIndexOrThrow("name")).take(150) + " (cópia)"),
+                "description" to p.getString(p.getColumnIndexOrThrow("description")),
+                "labor_minutes" to p.getDouble(p.getColumnIndexOrThrow("labor_minutes")),
+                "price" to if (p.isNull(p.getColumnIndexOrThrow("price"))) null else p.getDouble(p.getColumnIndexOrThrow("price")),
+                "margin_pct" to if (p.isNull(p.getColumnIndexOrThrow("margin_pct"))) null else p.getDouble(p.getColumnIndexOrThrow("margin_pct")),
+                "category" to p.getString(p.getColumnIndexOrThrow("category")),
+                "stock" to 0.0,
+                "in_catalog" to p.getInt(p.getColumnIndexOrThrow("in_catalog")),
+                "photo_id" to if (p.isNull(p.getColumnIndexOrThrow("photo_id"))) null else p.getLong(p.getColumnIndexOrThrow("photo_id")),
+                "photo2_id" to if (p.isNull(p.getColumnIndexOrThrow("photo2_id"))) null else p.getLong(p.getColumnIndexOrThrow("photo2_id")),
+                "photo3_id" to if (p.isNull(p.getColumnIndexOrThrow("photo3_id"))) null else p.getLong(p.getColumnIndexOrThrow("photo3_id"))
+            ))
+            db.rawQuery("SELECT material_id,qty,unit FROM recipe_items WHERE product_id=? ORDER BY id", arrayOf(productId.toString())).use { recipe ->
+                while (recipe.moveToNext()) db.insertOrThrow("recipe_items", null, values(
+                    "product_id" to copyId, "material_id" to recipe.getLong(recipe.getColumnIndexOrThrow("material_id")),
+                    "qty" to recipe.getDouble(recipe.getColumnIndexOrThrow("qty")), "unit" to recipe.getString(recipe.getColumnIndexOrThrow("unit"))
+                ))
+            }
+            copyId
+        }
+    }
+
     fun archiveProduct(productId: Long) = transaction { db ->
         db.rawQuery("SELECT id FROM products WHERE id=?", arrayOf(productId.toString())).use { require(it.moveToFirst()) { "Peça não encontrada" } }
         db.update("products", values("active" to 0), "id=?", arrayOf(productId.toString()))
