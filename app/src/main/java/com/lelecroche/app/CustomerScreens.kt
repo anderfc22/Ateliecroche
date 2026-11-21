@@ -33,7 +33,7 @@ fun NativeCustomersScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}
     var query by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val customers = remember(refresh, query) {
-        db.rows("SELECT c.id,c.name,c.phone,c.city,c.notes,COUNT(o.id) orders,COALESCE(SUM(o.total),0) total FROM customers c LEFT JOIN orders o ON o.customer_id=c.id WHERE c.name LIKE '%$query%' OR c.phone LIKE '%$query%' OR c.city LIKE '%$query%' GROUP BY c.id ORDER BY c.name COLLATE NOCASE")
+        db.rows("SELECT c.id,c.name,c.phone,c.city,c.notes,COUNT(o.id) orders,COALESCE(SUM(o.total),0) total FROM customers c LEFT JOIN orders o ON o.customer_id=c.id WHERE c.name LIKE ? OR c.phone LIKE ? OR c.city LIKE ? GROUP BY c.id ORDER BY c.name COLLATE NOCASE", arrayOf("%$query%", "%$query%", "%$query%"))
     }
     Column(modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
