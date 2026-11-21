@@ -83,6 +83,13 @@ class CrochetRepository(private val helper: AppDatabase) {
         }
     }
 
+    fun previewProductPricing(productId: Long): CrochetEngine.ProductPricing = productPricing(helper.readableDatabase, productId)
+
+    fun archiveProduct(productId: Long) = transaction { db ->
+        db.rawQuery("SELECT id FROM products WHERE id=?", arrayOf(productId.toString())).use { require(it.moveToFirst()) { "Peça não encontrada" } }
+        db.update("products", values("active" to 0), "id=?", arrayOf(productId.toString()))
+    }
+
     fun saveProduct(id: Long?, name: String, description: String, category: String, laborMinutes: Double, manualPrice: Double?, marginPercent: Double?, stock: Double?, inCatalog: Boolean, recipe: List<CrochetEngine.RecipeLine>): Long = transaction { db ->
         require(name.isNotBlank()) { "Informe o nome da peça" }; require(laborMinutes >= 0 && (manualPrice == null || manualPrice >= 0) && (marginPercent == null || marginPercent >= 0)); require(stock == null || stock >= 0)
         recipe.forEach { require(it.quantity > 0) { "Quantidade da receita deve ser maior que zero" }; CrochetEngine.convert(it.material, it.quantity, it.unit) }
