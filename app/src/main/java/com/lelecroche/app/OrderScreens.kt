@@ -130,6 +130,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
     var selectedProduct by remember { mutableStateOf(products.firstOrNull()?.get("id").orEmpty()) }
     var quantity by remember { mutableStateOf("1") }
     var price by remember { mutableStateOf("") }
+    var itemNote by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf("") }
     var customerExpanded by remember { mutableStateOf(false) }
     var productExpanded by remember { mutableStateOf(false) }
@@ -174,13 +175,14 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                     OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Qtd.") }, modifier = Modifier.width(90.dp), singleLine = true)
                 }
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Preço unitário (opcional)") }, placeholder = { Text("Preço automático") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = itemNote, onValueChange = { itemNote = it }, label = { Text("Observação do item") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedButton(onClick = {
                     val pid = selectedProduct.toLongOrNull()
                     val qty = decimal(quantity)
                     if (pid == null || qty == null || qty <= 0) error = "Selecione uma peça e informe uma quantidade válida."
                     else {
-                        lines.add(CrochetRepository.OrderLineInput(pid, qty, decimal(price)))
-                        quantity = "1"; price = ""; error = null
+                        lines.add(CrochetRepository.OrderLineInput(pid, qty, decimal(price), itemNote))
+                        quantity = "1"; price = ""; itemNote = ""; error = null
                     }
                 }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Text("Adicionar peça ao pedido") }
                 lines.forEachIndexed { index, line ->
@@ -189,6 +191,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                         Column(Modifier.weight(1f)) {
                             Text(name, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("${line.quantity} un · ${money(linePrice(line))}${if (line.unitPrice == null) " (automático)" else ""}", color = OrderMuted, fontSize = 11.sp)
+                            if (line.note.isNotBlank()) Text(line.note, color = OrderMuted, fontSize = 10.sp)
                         }
                         IconButton(onClick = { lines.removeAt(index) }) { Icon(Icons.Default.Close, "Remover") }
                     }
@@ -242,7 +245,7 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
                 Text("Itens", fontWeight = FontWeight.Bold)
                 items.forEach { line ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${line["qty"]}× ${line["product_name"]}", modifier = Modifier.weight(1f), fontSize = 13.sp)
+                        Column(Modifier.weight(1f)) { Text("${line["qty"]}× ${line["product_name"]}", fontSize = 13.sp); if (line["note"].orEmpty().isNotBlank()) Text(line["note"].orEmpty(), color = OrderMuted, fontSize = 10.sp) }
                         Text(money((line["qty"]?.toDoubleOrNull() ?: 0.0) * (line["unit_price"]?.toDoubleOrNull() ?: 0.0)), fontSize = 13.sp)
                     }
                 }
