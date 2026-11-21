@@ -46,7 +46,7 @@ private fun LeleCrocheApp() {
         Destination("Financeiro", Icons.Default.AccountBalanceWallet),
         Destination("Mais", Icons.Default.GridView)
     )
-    var selected by remember { mutableIntStateOf(0) }
+    var selected by remember { mutableIntStateOf(0) }\n    var moreSection by remember { mutableStateOf<String?>(null) }
 
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -95,7 +95,7 @@ private fun LeleCrocheApp() {
                 2 -> ModuleScreen(Modifier.padding(padding), "Peças", "Cadastre peças, receitas, materiais utilizados e preços.", Icons.Default.Cottage)
                 3 -> ModuleScreen(Modifier.padding(padding), "Estoque", "Controle fios, materiais, compras e movimentações.", Icons.Default.Inventory2)
                 4 -> ModuleScreen(Modifier.padding(padding), "Financeiro", "Consulte receitas, despesas, fluxo de caixa e relatórios.", Icons.Default.AccountBalanceWallet)
-                else -> MoreScreen(Modifier.padding(padding))
+                else -> if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }\n                    else MoreScreen(Modifier.padding(padding)) { moreSection = it }
             }
         }
     }
@@ -166,18 +166,110 @@ private fun ModuleScreen(modifier: Modifier, title: String, description: String,
 }
 
 @Composable
-private fun MoreScreen(modifier: Modifier = Modifier) {
+private fun MoreScreen(modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
     val entries = listOf("Clientes", "Produção", "Relatórios", "Catálogo público", "Configurações", "Backup e dados")
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Mais opções", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
         entries.forEach { entry ->
             Row(
-                Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(12.dp)).clickable { }.padding(16.dp),
+                Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(12.dp)).clickable { onSelect(entry) }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(entry, Modifier.weight(1f), color = TextDark, fontWeight = FontWeight.Medium)
                 Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
         }
+    }
+}
+
+
+@Composable
+private fun CustomersScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val database = remember { AppDatabase(context.applicationContext) }
+    var customers by remember { mutableStateOf(database.getCustomers()) }
+    var showDialog by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<Customer?>(null) }
+
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Voltar") }
+            Column(Modifier.weight(1f)) {
+                Text("Clientes", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
+                Text("${customers.size} cliente(s) cadastrados neste aparelho", color = Muted, fontSize = 12.sp)
+            }
+            Button(onClick = { editing = null; showDialog = true }) {
+                Icon(Icons.Default.Add, null)
+                Spacer(Modifier.width(4.dp))
+                Text("Novo")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (customers.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = CardWhite)) {
+                Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.PeopleAlt, null, tint = PrimaryGreen, modifier = Modifier.size(36.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Nenhum cliente cadastrado", fontWeight = FontWeight.SemiBold)
+                    Text("Toque em Novo para adicionar o primeiro cliente.", color = Muted, fontSize = 13.sp)
+                }
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                items(customers.size) { index ->
+                    val customer = customers[index]
+                    Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(13.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).background(Color(0xFFE5F1E5), CircleShape), contentAlignment = Alignment.Center) {
+                                Text(customer.name.take(1).uppercase(), color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(customer.name, fontWeight = FontWeight.SemiBold, color = TextDark)
+                                if (customer.phone.isNotBlank()) Text(customer.phone, color = Muted, fontSize = 12.sp)
+                                if (customer.notes.isNotBlank()) Text(customer.notes, color = Muted, fontSize = 11.sp, maxLines = 2)
+                            }
+                            IconButton(onClick = { editing = customer; showDialog = true }) {
+                                Icon(Icons.Default.Edit, "Editar", tint = PrimaryGreen)
+                            }
+                            IconButton(onClick = {
+                                database.deleteCustomer(customer.id)
+                                customers = database.getCustomers()
+                            }) {
+                                Icon(Icons.Default.DeleteOutline, "Excluir", tint = Terracotta)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDialog) {
+        var name by remember(editing) { mutableStateOf(editing?.name.orEmpty()) }
+        var phone by remember(editing) { mutableStateOf(editing?.phone.orEmpty()) }
+        var notes by remember(editing) { mutableStateOf(editing?.notes.orEmpty()) }
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(if (editing == null) "Novo cliente" else "Editar cliente") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true)
+                    OutlinedTextField(phone, { phone = it }, label = { Text("Telefone") }, singleLine = true)
+                    OutlinedTextField(notes, { notes = it }, label = { Text("Observações") }, minLines = 2)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = name.isNotBlank(),
+                    onClick = {
+                        database.saveCustomer(editing?.id, name, phone, notes)
+                        customers = database.getCustomers()
+                        showDialog = false
+                    }
+                ) { Text("Salvar") }
+            },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancelar") } }
+        )
     }
 }
