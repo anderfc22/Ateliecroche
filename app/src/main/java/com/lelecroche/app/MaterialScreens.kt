@@ -97,6 +97,7 @@ fun MaterialsScreen(modifier: Modifier = Modifier) {
                             }
                             if (min > 0) Text("Mínimo: ${stockNumber(min)} ${m["unit"]}", color = StockMuted, fontSize = 11.sp)
                             if (demand != null && demand.required > 0) Text("Reservado para produção: ${stockNumber(demand.required)} ${m["unit"]} · faltam ${stockNumber(short)}", color = if (short > 0) MaterialTheme.colorScheme.error else StockMuted, fontSize = 11.sp)
+                            if (short > 0 && demand?.blockedOrderIds?.isNotEmpty() == true) Text("Bloqueia pedidos: " + demand.blockedOrderIds.joinToString { "#$it" }, color = MaterialTheme.colorScheme.error, fontSize = 10.sp)
                         }
                     }
                 }
