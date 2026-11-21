@@ -224,6 +224,7 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
     val items = remember(orderId, refresh) { db.rows("SELECT i.*,p.name product_name FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=? ORDER BY i.id", arrayOf(orderId.toString())) }
     val payments = remember(orderId, refresh) { db.rows("SELECT * FROM payments WHERE order_id=? ORDER BY id", arrayOf(orderId.toString())) }
     val production = remember(orderId, refresh) { db.rows("SELECT po.*,p.name product_name FROM production_orders po JOIN products p ON p.id=po.product_id WHERE po.order_id=? ORDER BY po.id", arrayOf(orderId.toString())) }
+    val blocked = remember(orderId, refresh) { repository.orderMaterialShortages(orderId) }
     if (order == null) return
     val total = order["total"]?.toDoubleOrNull() ?: 0.0
     val paid = payments.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
@@ -253,6 +254,12 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
                     Divider()
                     Text("Produção", fontWeight = FontWeight.Bold)
                     production.forEach { p -> Text("${p["qty"]}× ${p["product_name"]} · ${p["status"]}", fontSize = 12.sp, color = OrderMuted) }
+                }
+                if (blocked.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth().background(Color(0xFFFFF1E8), RoundedCornerShape(9.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Produção aguardando materiais", color = Color(0xFF8A4C24), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        blocked.forEach { shortage -> Text("${shortage.material.name}: faltam ${shortage.shortage} ${shortage.material.unit}", color = Color(0xFF8A4C24), fontSize = 11.sp) }
+                    }
                 }
                 if (payments.isNotEmpty()) {
                     Divider()
