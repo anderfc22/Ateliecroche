@@ -132,6 +132,8 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     var photoId by remember(id) { mutableStateOf(current?.get("photo_id")?.toLongOrNull()) }
+    var savedMaterialId by remember(id) { mutableStateOf(id) }
+    var initialPurchaseDone by remember(id) { mutableStateOf(false) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
@@ -182,11 +184,12 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
         },
         confirmButton = { TextButton(onClick = {
             try {
-                val savedId = repo.saveMaterial(id, name, kind, color, brand, unit, stockDecimal(metersPerKg) ?: 0.0, stockDecimal(minimum) ?: 0.0)
+                val savedId = repo.saveMaterial(savedMaterialId, name, kind, color, brand, unit, stockDecimal(metersPerKg) ?: 0.0, stockDecimal(minimum) ?: 0.0)
+                savedMaterialId = savedId
                 repo.setMaterialPhoto(savedId, photoId)
                 val qty = stockDecimal(initialQty) ?: 0.0
                 val cost = stockDecimal(initialCost) ?: 0.0
-                if (id == null && qty > 0) repo.recordPurchase(savedId, qty, unit, cost, brand)
+                if (id == null && qty > 0 && !initialPurchaseDone) { repo.recordPurchase(savedId, qty, unit, cost, brand); initialPurchaseDone = true }
                 onSaved()
             } catch (e: Exception) { error = e.message ?: "Não foi possível salvar o material." }
         }) { Text("Salvar") } },
