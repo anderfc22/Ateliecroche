@@ -130,7 +130,7 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
             try {
                 val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: throw IllegalArgumentException("Não foi possível abrir a imagem.")
                 val ratio = minOf(1f, 800f / maxOf(bitmap.width, bitmap.height).toFloat())
-                val scaled = if (ratio < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true) else bitmap
+                val scaled = if (ratio < 1f) Bitmap.createScaledBitmap(bitmap, maxOf(1, (bitmap.width * ratio).toInt()), maxOf(1, (bitmap.height * ratio).toInt()), true) else bitmap
                 val bytes = ByteArrayOutputStream().use { output -> scaled.compress(Bitmap.CompressFormat.JPEG, 82, output); output.toByteArray() }
                 photoIds[photoSlot] = repository.storePhoto("image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
             } catch (e: Exception) { error = e.message ?: "Não foi possível carregar a foto." }
