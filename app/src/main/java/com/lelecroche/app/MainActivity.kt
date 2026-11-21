@@ -95,7 +95,7 @@ private fun LeleCrocheApp() {
                 0 -> HomeScreen(Modifier.padding(padding))
                 1 -> OrdersScreen(Modifier.padding(padding))
                 2 -> ProductsScreen(Modifier.padding(padding))
-                3 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Estoque", Modifier.padding(padding))
+                3 -> MaterialsScreen(Modifier.padding(padding))
                 4 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Financeiro", Modifier.padding(padding))
                 else -> if (moreSection == null) MoreScreen(Modifier.padding(padding)) { moreSection = it }
                     else if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }
