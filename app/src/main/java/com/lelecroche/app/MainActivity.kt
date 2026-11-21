@@ -47,7 +47,8 @@ private fun LeleCrocheApp() {
         Destination("Financeiro", Icons.Default.AccountBalanceWallet),
         Destination("Mais", Icons.Default.GridView)
     )
-    var selected by remember { mutableIntStateOf(0) }\n    var moreSection by remember { mutableStateOf<String?>(null) }
+    var selected by remember { mutableIntStateOf(0) }
+    var moreSection by remember { mutableStateOf<String?>(null) }
 
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -96,7 +97,8 @@ private fun LeleCrocheApp() {
                 2 -> ModuleScreen(Modifier.padding(padding), "Peças", "Cadastre peças, receitas, materiais utilizados e preços.", Icons.Default.Cottage)
                 3 -> ModuleScreen(Modifier.padding(padding), "Estoque", "Controle fios, materiais, compras e movimentações.", Icons.Default.Inventory2)
                 4 -> ModuleScreen(Modifier.padding(padding), "Financeiro", "Consulte receitas, despesas, fluxo de caixa e relatórios.", Icons.Default.AccountBalanceWallet)
-                else -> if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }\n                    else MoreScreen(Modifier.padding(padding)) { moreSection = it }
+                else -> if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }
+                    else MoreScreen(Modifier.padding(padding)) { moreSection = it }
             }
         }
     }
