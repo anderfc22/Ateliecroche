@@ -1,5 +1,11 @@
 package com.lelecroche.app
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,11 +23,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import java.io.ByteArrayOutputStream
 
 private val ProductGreen = Color(0xFF42634C)
 private val ProductText = Color(0xFF161D19)
@@ -105,6 +113,22 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
     var stock by remember(productId) { mutableStateOf(if (productId == null) "0" else "") }
     var inCatalog by remember(productId) { mutableStateOf(product?.get("in_catalog") != "0") }
     var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val photoIds = remember(productId) {
+        mutableStateListOf<Long?>(product?.get("photo_id")?.toLongOrNull(), product?.get("photo2_id")?.toLongOrNull(), product?.get("photo3_id")?.toLongOrNull())
+    }
+    var photoSlot by remember { mutableIntStateOf(0) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            try {
+                val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: throw IllegalArgumentException("Não foi possível abrir a imagem.")
+                val ratio = minOf(1f, 800f / maxOf(bitmap.width, bitmap.height).toFloat())
+                val scaled = if (ratio < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true) else bitmap
+                val bytes = ByteArrayOutputStream().use { output -> scaled.compress(Bitmap.CompressFormat.JPEG, 82, output); output.toByteArray() }
+                photoIds[photoSlot] = repository.storePhoto("image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
+            } catch (e: Exception) { error = e.message ?: "Não foi possível carregar a foto." }
+        }
+    }
     val recipeModels = recipe.mapNotNull { line ->
         val m = materials.firstOrNull { it["id"] == line.materialId } ?: return@mapNotNull null
         val qty = productNumber(line.quantity) ?: return@mapNotNull null
@@ -139,6 +163,19 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = inCatalog, onCheckedChange = { inCatalog = it })
                     Text("Exibir no catálogo", fontSize = 13.sp)
+                }
+                Text("Fotos da peça", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    photoIds.forEachIndexed { index, photoId ->
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            val imageData = remember(photoId) { photoId?.let { repository.photoBase64(it) } }
+                            val bitmap = remember(imageData) { imageData?.let { data -> runCatching { val bytes = Base64.decode(data, Base64.DEFAULT); BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() } }
+                            if (bitmap != null) Image(bitmap.asImageBitmap(), contentDescription = "Foto ${index + 1}", modifier = Modifier.size(76.dp))
+                            else Box(Modifier.size(76.dp).background(Color(0xFFEEF6EE), RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) { Text("Foto ${index + 1}", fontSize = 10.sp, color = ProductMuted) }
+                            OutlinedButton(onClick = { photoSlot = index; photoPicker.launch("image/*") }, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 4.dp)) { Text("Escolher", fontSize = 9.sp) }
+                            if (photoId != null) TextButton(onClick = { photoIds[index] = null }, contentPadding = PaddingValues(0.dp)) { Text("Remover", fontSize = 9.sp) }
+                        }
+                    }
                 }
                 Divider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -197,7 +234,8 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                     val material = CrochetEngine.Material(m["id"]!!.toLong(), m["name"].orEmpty(), m["unit"].orEmpty(), m["meters_per_kg"]?.toDoubleOrNull() ?: 0.0, m["stock"]?.toDoubleOrNull() ?: 0.0, m["min_stock"]?.toDoubleOrNull() ?: 0.0, m["avg_cost"]?.toDoubleOrNull() ?: 0.0)
                     CrochetEngine.RecipeLine(material, q, line.unit)
                 }
-                repository.saveProduct(productId, name, description, category, productNumber(labor) ?: 0.0, productNumber(price), productNumber(margin), productNumber(stock), inCatalog, models)
+                val savedId = repository.saveProduct(productId, name, description, category, productNumber(labor) ?: 0.0, productNumber(price), productNumber(margin), productNumber(stock), inCatalog, models)
+                photoIds.forEachIndexed { index, photoId -> repository.setProductPhoto(savedId, index + 1, photoId) }
                 onSaved()
             } catch (e: Exception) { error = e.message ?: "Não foi possível salvar a peça." }
         }) { Text("Salvar peça") } },
