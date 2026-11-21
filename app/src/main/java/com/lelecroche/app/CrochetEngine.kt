@@ -100,7 +100,7 @@ object CrochetEngine {
         val total = production.sumOf { it.first }
         if (total <= 0) return 0
         val weighted = production.sumOf { (qty, status) -> qty * (stageWeight[status] ?: 0) }
-        return kotlin.math.round(weighted / total).toInt()
+        return BigDecimal.valueOf(weighted / total).setScale(0, RoundingMode.HALF_UP).toInt()
     }
 
     private fun round1(value: Double) = BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP).toDouble()
