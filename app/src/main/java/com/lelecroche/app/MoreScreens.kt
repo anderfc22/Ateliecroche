@@ -40,7 +40,9 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
     val pieces = db.scalar("SELECT COALESCE(SUM(po.qty),0) FROM production_orders po WHERE po.status='pronta'")
     val hours = db.scalar("SELECT COALESCE(SUM(po.qty*p.labor_minutes),0)/60.0 FROM production_orders po JOIN products p ON p.id=po.product_id WHERE po.status='pronta'")
-    val low = db.scalar("SELECT COUNT(*) FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock").toInt()
+    val lowByMinimum = db.rows("SELECT id,name FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock")
+    val lowByDemand = repo.materialDemand().filter { it.shortage > CrochetEngine.EPSILON }.map { it.material.id }
+    val low = (lowByMinimum.mapNotNull { it["id"]?.toLongOrNull() } + lowByDemand).distinct().size
     LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
         item { Text("Relatórios", fontSize = 24.sp, fontWeight = FontWeight.SemiBold) }
         item {
@@ -50,7 +52,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
                 ReportRow("A receber", moreMoney(receivable))
                 ReportRow("Materiais em estoque", moreMoney(stockValue))
                 ReportRow("Peças prontas (a custo)", moreMoney(finishedValue))
-                ReportRow("Materiais com estoque baixo", low.toString())
+                ReportRow("Materiais com estoque baixo / falta para produção", low.toString())
             }
         }
         item { Text("Mais vendidas", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
