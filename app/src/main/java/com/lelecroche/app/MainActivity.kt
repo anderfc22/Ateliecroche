@@ -92,7 +92,7 @@ private fun LeleCrocheApp() {
             }
         ) { padding ->
             when (selected) {
-                0 -> HomeScreen(Modifier.padding(padding))
+                0 -> HomeScreen(Modifier.padding(padding)) { target -> when (target) { "orders" -> { selected = 1; moreSection = null }; "materials" -> { selected = 3; moreSection = null }; "finance" -> { selected = 4; moreSection = null }; "settings" -> { selected = 5; moreSection = "Preço, meta e ateliê" } } }
                 1 -> OrdersScreen(Modifier.padding(padding))
                 2 -> ProductsScreen(Modifier.padding(padding))
                 3 -> MaterialsScreen(Modifier.padding(padding))
@@ -113,12 +113,11 @@ private fun LeleCrocheApp() {
 }
 
 @Composable
-private fun HomeScreen(modifier: Modifier = Modifier) {
+private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val db = remember { AppDatabase(context.applicationContext) }
     val openOrders = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto'").toInt()
     val requests = db.scalar("SELECT COUNT(*) FROM orders WHERE status='solicitado'").toInt()
-    val lowMaterials = db.scalar("SELECT COUNT(*) FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock").toInt()
     val production = db.scalar("SELECT COUNT(*) FROM production_orders WHERE status IN ('fila','andamento','acabamento')").toInt()
     val readyPieces = db.scalar("SELECT COALESCE(SUM(stock),0) FROM products WHERE active=1")
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
@@ -126,66 +125,115 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
     val cashOut = db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
     val cash = cashIn - cashOut
     val monthKey = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(java.util.Date())
+    val previousCalendar = java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH, -1) }
+    val previousMonth = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(previousCalendar.time)
     val monthRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$monthKey'")
-    val monthlyGoal = db.rows("SELECT svalue FROM settings WHERE skey='monthly_goal'").firstOrNull()?.get("svalue")?.toDoubleOrNull() ?: 0.0
-    val goalPercent = if (monthlyGoal > 0) (monthRevenue / monthlyGoal * 100).toInt() else 0
+    val previousRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$previousMonth'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$previousMonth'")
+    val vsPrevious = if (previousRevenue > 0) ((monthRevenue - previousRevenue) / previousRevenue * 100).toInt() else null
+    val goal = db.rows("SELECT svalue FROM settings WHERE skey='monthly_goal'").firstOrNull()?.get("svalue")?.toDoubleOrNull() ?: 0.0
+    val goalPercent = if (goal > 0) (monthRevenue / goal * 100).toInt() else 0
     val dueWeek = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)>=date('now','localtime') AND date(due_date)<=date('now','localtime','+7 day')").toInt()
     val overdue = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)<date('now','localtime')").toInt()
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val lowMaterials = db.rows("SELECT name FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock ORDER BY stock/min_stock LIMIT 3")
+    val lowCount = db.scalar("SELECT COUNT(*) FROM materials WHERE active=1 AND min_stock>0 AND stock<=min_stock").toInt()
+    val atelierName = db.rows("SELECT svalue FROM settings WHERE skey='atelier_name'").firstOrNull()?.get("svalue") ?: "Meu Ateliê"
+    val dateLabel = java.text.SimpleDateFormat("d 'de' MMMM", java.util.Locale("pt","BR")).format(java.util.Date())
+    val empty = db.scalar("SELECT (SELECT COUNT(*) FROM materials)+(SELECT COUNT(*) FROM products)+(SELECT COUNT(*) FROM orders)") == 0.0
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Column(
-                Modifier.fillMaxWidth().background(Color(0xFFEEF6EE), RoundedCornerShape(18.dp)).padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text("ATELIÊ ARTESANAL", color = PrimaryGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Text("Seu ateliê, em ordem.", color = TextDark, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
-                Text("Acompanhe pedidos, materiais e produção em um só lugar.", color = Muted, fontSize = 13.sp)
+            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(18.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("● ATELIÊ ARTESANAL", color = PrimaryGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text(dateLabel, color = Muted, fontSize = 11.sp)
+                }
+                Text("Olá, $atelierName", color = TextDark, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (openOrders > 0) "$openOrders encomenda(s) em aberto" + if (dueWeek > 0) ", $dueWeek com prazo nos próximos 7 dias." else ". Bom trabalho nas agulhas!" else "Nenhuma encomenda em aberto agora. Bom trabalho nas agulhas!", color = Muted, fontSize = 13.sp)
             }
         }
-        item { Text("Visão geral", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
-        item {
-            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Faturamento do mês", color = Muted, fontSize = 12.sp)
-                Text("R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", monthRevenue), color = PrimaryGreen, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
-                if (monthlyGoal > 0) Text("$goalPercent% da meta de R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", monthlyGoal), color = Muted, fontSize = 11.sp)
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Encomendas abertas", openOrders.toString(), "Em acompanhamento", Modifier.weight(1f))
-                MetricCard("Estoque baixo", lowMaterials.toString(), "Materiais para repor", Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("A receber", "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", receivable), "Saldo dos pedidos", Modifier.weight(1f))
-                MetricCard("Em produção", production.toString(), "Ordens em andamento", Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Peças prontas", String.format(java.util.Locale("pt","BR"), "%.0f", readyPieces), "Disponíveis no estoque", Modifier.weight(1f))
-                MetricCard("Caixa acumulado", "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", cash), "Pagamentos + receitas − saídas", Modifier.weight(1f))
-            }
-        }
-        if (requests > 0 || lowMaterials > 0 || dueWeek > 0 || overdue > 0) {
-            item {
-                Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Atenção", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    if (requests > 0) Text("$requests pedido(s) do catálogo aguardando confirmação", color = Terracotta, fontSize = 13.sp)
-                    if (lowMaterials > 0) Text("$lowMaterials material(is) com estoque baixo", color = Terracotta, fontSize = 13.sp)
-                    if (dueWeek > 0) Text("$dueWeek encomenda(s) vencem nos próximos 7 dias", color = Terracotta, fontSize = 13.sp)
-                    if (overdue > 0) Text("$overdue encomenda(s) atrasada(s)", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+        if (requests > 0) item {
+            Card(modifier = Modifier.fillMaxWidth().clickable { onNavigate("orders") }, colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9D8))) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("$requests pedido(s) novo(s) do catálogo", fontWeight = FontWeight.SemiBold, color = Terracotta); Text("Toque para ver e confirmar", color = Muted, fontSize = 11.sp) }
+                    Text("›", fontSize = 25.sp, color = Terracotta)
                 }
             }
         }
-        item {
-            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp)) {
-                Text("Resumo do ateliê", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Spacer(Modifier.height(6.dp))
-                Text("$openOrders encomenda(s) abertas · $production ordem(ns) em produção · $readyPieces peça(s) prontas.", color = Muted, fontSize = 13.sp)
+        if (empty) item {
+            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("Comece por aqui", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text("Cadastre seu primeiro material e suas peças para acompanhar custos, estoque e encomendas.", color = Muted, fontSize = 12.sp)
+                Button(onClick = { onNavigate("materials") }, modifier = Modifier.fillMaxWidth()) { Text("Cadastrar primeiro material") }
             }
         }
+        if (lowCount > 0) item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9D8)), modifier = Modifier.fillMaxWidth().clickable { onNavigate("materials") }) {
+                Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Atenção aos materiais", color = Terracotta, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text("$lowCount material(is) com estoque baixo: " + lowMaterials.joinToString { it["name"].orEmpty() }, color = Terracotta, fontSize = 12.sp)
+                    Text("Toque para repor", color = Terracotta, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+            }
+        }
+        if (overdue > 0) item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE4E1)), modifier = Modifier.fillMaxWidth().clickable { onNavigate("orders") }) {
+                Text("$overdue encomenda(s) com prazo atrasado. Toque para revisar.", modifier = Modifier.padding(13.dp), color = MaterialTheme.colorScheme.error, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (goal > 0) item {
+            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Meta mensal de vendas", color = Muted, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text("$goalPercent%", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                }
+                Box(Modifier.fillMaxWidth().height(8.dp).background(Color(0xFFE3EAE2), RoundedCornerShape(10.dp))) {
+                    Box(Modifier.fillMaxWidth((goalPercent.coerceIn(0, 100)) / 100f).fillMaxHeight().background(PrimaryGreen, RoundedCornerShape(10.dp)))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Recebido: " + homeMoney(monthRevenue), color = Muted, fontSize = 10.sp)
+                    Text("Meta: " + homeMoney(goal), color = Muted, fontSize = 10.sp)
+                }
+            }
+        } else item {
+            Row(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(12.dp)).clickable { onNavigate("settings") }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text("Defina a meta mensal de vendas", fontWeight = FontWeight.SemiBold, fontSize = 12.sp); Text("Acompanhe quanto falta para chegar lá", color = Muted, fontSize = 10.sp) }
+                Text("›", color = PrimaryGreen, fontSize = 22.sp)
+            }
+        }
+        item { Text("Visão geral", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                HomeMetric("Recebido no mês", homeMoney(monthRevenue), vsPrevious?.let { "$it% vs anterior" } ?: "sem mês anterior", Modifier.weight(1f))
+                HomeMetric("Em produção", "$production ativa(s)", "$dueWeek entrega(s) na semana", Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                HomeMetric("Pronta-entrega", String.format(java.util.Locale("pt","BR"), "%.0f itens", readyPieces), "Prontos para vitrine", Modifier.weight(1f))
+                HomeMetric("Saldo em caixa", homeMoney(cash), "A receber: " + homeMoney(receivable), Modifier.weight(1f))
+            }
+        }
+        item { Text("Ações rápidas", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Button(onClick = { onNavigate("orders") }, modifier = Modifier.weight(1f)) { Text("＋ Nova encomenda", fontSize = 11.sp) }
+                OutlinedButton(onClick = { onNavigate("materials") }, modifier = Modifier.weight(1f)) { Text("＋ Novo material", fontSize = 11.sp) }
+            }
+        }
+        item {
+            TextButton(onClick = { onNavigate("finance") }, modifier = Modifier.fillMaxWidth()) { Text("Ver financeiro completo") }
+        }
+    }
+}
+
+private fun homeMoney(value: Double): String = "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", value)
+
+@Composable
+private fun HomeMetric(title: String, value: String, caption: String, modifier: Modifier = Modifier) {
+    Column(modifier.background(CardWhite, RoundedCornerShape(14.dp)).padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(title, color = Muted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Text(value, color = PrimaryGreen, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text(caption, color = Muted, fontSize = 9.sp)
     }
 }
 
