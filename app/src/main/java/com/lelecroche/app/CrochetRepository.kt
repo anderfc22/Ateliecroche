@@ -354,6 +354,11 @@ class CrochetRepository(private val helper: AppDatabase) {
         db.update("products", values("in_catalog" to if (enabled) 1 else 0), "id=?", arrayOf(productId.toString()))
     }
 
+    fun deleteFinanceEntry(type: String, id: Long) = transaction { db ->
+        val table = when (type) { "income" -> "incomes"; "expense" -> "expenses"; else -> throw IllegalArgumentException("Só receitas e despesas avulsas podem ser apagadas") }
+        db.delete(table, "id=?", arrayOf(id.toString()))
+    }
+
     fun saveNumericSettings(hourlyRate: Double, overheadPerPiece: Double, defaultMarginPercent: Double, monthlyGoal: Double) = transaction { db ->
         require(hourlyRate >= 0 && overheadPerPiece >= 0 && defaultMarginPercent >= 0 && monthlyGoal >= 0)
         mapOf("hourly_rate" to hourlyRate, "overhead_per_piece" to overheadPerPiece, "default_margin_pct" to defaultMarginPercent, "monthly_goal" to monthlyGoal).forEach { (key, value) ->
