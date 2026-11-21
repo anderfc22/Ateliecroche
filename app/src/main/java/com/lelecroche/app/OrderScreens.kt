@@ -140,7 +140,8 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
     var depositMethod by remember { mutableStateOf("Pix") }
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    val total = lines.sumOf { it.quantity * (it.unitPrice ?: 0.0) }
+    fun linePrice(line: CrochetRepository.OrderLineInput) = line.unitPrice ?: runCatching { repository.previewProductPricing(line.productId).finalPrice }.getOrDefault(0.0)
+    val total = lines.sumOf { it.quantity * linePrice(it) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Novo pedido") },
@@ -187,7 +188,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                     Row(Modifier.fillMaxWidth().background(Color(0xFFF4FBF3), RoundedCornerShape(10.dp)).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(name, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("${line.quantity} un · ${line.unitPrice?.let(::money) ?: "preço automático"}", color = OrderMuted, fontSize = 11.sp)
+                            Text("${line.quantity} un · ${money(linePrice(line))}${if (line.unitPrice == null) " (automático)" else ""}", color = OrderMuted, fontSize = 11.sp)
                         }
                         IconButton(onClick = { lines.removeAt(index) }) { Icon(Icons.Default.Close, "Remover") }
                     }
