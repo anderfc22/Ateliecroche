@@ -135,6 +135,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
     var newCustomerName by remember { mutableStateOf("") }
     var newCustomerPhone by remember { mutableStateOf("") }
     var newCustomerCity by remember { mutableStateOf("") }
+    var savedCustomerId by remember { mutableStateOf<Long?>(null) }
     var fullPaid by remember { mutableStateOf(false) }
     var customerExpanded by remember { mutableStateOf(false) }
     var productExpanded by remember { mutableStateOf(false) }
@@ -228,7 +229,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                 try {
                     val customer = if (customerId == "__new") {
                         require(newCustomerName.isNotBlank()) { "Informe o nome do novo cliente." }
-                        repository.saveCustomer(null, newCustomerName, newCustomerPhone, newCustomerCity)
+                        repository.saveCustomer(savedCustomerId, newCustomerName, newCustomerPhone, newCustomerCity).also { savedCustomerId = it }
                     } else customerId.toLongOrNull()
                     val paidNow = if (fullPaid) total else decimal(deposit) ?: 0.0
                     repository.createOrder(customer, lines.toList(), kind, channel, if (kind == "encomenda") dueDate else "", notes, paidNow, depositMethod)
