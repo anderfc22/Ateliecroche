@@ -113,7 +113,9 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
     var name by remember(productId) { mutableStateOf(product?.get("name").orEmpty()) }
     var description by remember(productId) { mutableStateOf(product?.get("description").orEmpty()) }
     var category by remember(productId) { mutableStateOf(product?.get("category").orEmpty()) }
-    var labor by remember(productId) { mutableStateOf(product?.get("labor_minutes").orEmpty().ifBlank { "0" }) }
+    val savedLabor = product?.get("labor_minutes")?.toDoubleOrNull() ?: 0.0
+    var laborHours by remember(productId) { mutableStateOf(if (savedLabor >= 60) (savedLabor / 60).toInt().toString() else "") }
+    var laborMinutes by remember(productId) { mutableStateOf((savedLabor % 60).toInt().toString()) }
     var price by remember(productId) { mutableStateOf(product?.get("price").orEmpty()) }
     var margin by remember(productId) { mutableStateOf(product?.get("margin_pct").orEmpty()) }
     var stock by remember(productId) { mutableStateOf(if (productId == null) "0" else "") }
@@ -136,6 +138,7 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
             } catch (e: Exception) { error = e.message ?: "Não foi possível carregar a foto." }
         }
     }
+    val laborTotal = (productNumber(laborHours) ?: 0.0) * 60.0 + (productNumber(laborMinutes) ?: 0.0)
     val recipeModels = recipe.mapNotNull { line ->
         val m = materials.firstOrNull { it["id"] == line.materialId } ?: return@mapNotNull null
         val qty = productNumber(line.quantity) ?: return@mapNotNull null
@@ -148,7 +151,7 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
     }
     val preview = runCatching {
         val settings = db.rows("SELECT skey,svalue FROM settings").associate { it["skey"].orEmpty() to it["svalue"].orEmpty() }
-        val cost = CrochetEngine.calculateCost(recipeModels, productNumber(labor) ?: 0.0, settings["hourly_rate"]?.toDoubleOrNull() ?: 15.0, settings["overhead_per_piece"]?.toDoubleOrNull() ?: 2.0)
+        val cost = CrochetEngine.calculateCost(recipeModels, laborTotal, settings["hourly_rate"]?.toDoubleOrNull() ?: 15.0, settings["overhead_per_piece"]?.toDoubleOrNull() ?: 2.0)
         CrochetEngine.calculatePricing(cost, productNumber(margin), settings["default_margin_pct"]?.toDoubleOrNull() ?: 100.0, productNumber(price))
     }.getOrNull()
     AlertDialog(
@@ -160,8 +163,9 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                 OutlinedTextField(category, { category = it }, label = { Text("Categoria") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(description, { description = it }, label = { Text("Descrição") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(labor, { labor = it }, label = { Text("Mão de obra (min)") }, modifier = Modifier.weight(1f), singleLine = true)
-                    OutlinedTextField(price, { price = it }, label = { Text("Preço manual (R$)") }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("Automático") })
+                    OutlinedTextField(laborHours, { laborHours = it }, label = { Text("Horas") }, modifier = Modifier.weight(1f), singleLine = true)
+                    OutlinedTextField(laborMinutes, { laborMinutes = it }, label = { Text("Minutos") }, modifier = Modifier.weight(1f), singleLine = true)
+                    OutlinedTextField(price, { price = it }, label = { Text("Preço (R$)") }, modifier = Modifier.weight(1.2f), singleLine = true, placeholder = { Text("Auto") })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(margin, { margin = it }, label = { Text("Margem (%)") }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("Padrão") })
@@ -241,7 +245,9 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                     val material = CrochetEngine.Material(m["id"]!!.toLong(), m["name"].orEmpty(), m["unit"].orEmpty(), m["meters_per_kg"]?.toDoubleOrNull() ?: 0.0, m["stock"]?.toDoubleOrNull() ?: 0.0, m["min_stock"]?.toDoubleOrNull() ?: 0.0, m["avg_cost"]?.toDoubleOrNull() ?: 0.0)
                     CrochetEngine.RecipeLine(material, q, line.unit)
                 }
-                val laborValue = productNumber(labor) ?: throw IllegalArgumentException("Informe os minutos de mão de obra.")
+                val hoursValue = if (laborHours.isBlank()) 0.0 else productNumber(laborHours) ?: throw IllegalArgumentException("Horas de mão de obra inválidas.")
+                val minutesValue = if (laborMinutes.isBlank()) 0.0 else productNumber(laborMinutes) ?: throw IllegalArgumentException("Minutos de mão de obra inválidos.")
+                val laborValue = hoursValue * 60.0 + minutesValue
                 val priceValue = if (price.isBlank()) null else productNumber(price) ?: throw IllegalArgumentException("Preço manual inválido.")
                 val marginValue = if (margin.isBlank()) null else productNumber(margin) ?: throw IllegalArgumentException("Margem inválida.")
                 val stockValue = if (stock.isBlank()) null else productNumber(stock) ?: throw IllegalArgumentException("Estoque informado é inválido.")
