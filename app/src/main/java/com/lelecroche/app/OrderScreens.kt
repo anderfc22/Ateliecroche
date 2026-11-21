@@ -194,7 +194,9 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                     val qty = decimal(quantity)
                     if (pid == null || qty == null || qty <= 0) error = "Selecione uma peça e informe uma quantidade válida."
                     else {
-                        lines.add(CrochetRepository.OrderLineInput(pid, qty, decimal(price), itemNote))
+                        val customPrice = if (price.isBlank()) null else decimal(price) ?: throw IllegalArgumentException("Preço unitário inválido.")
+                        if (customPrice != null && customPrice < 0) throw IllegalArgumentException("Preço unitário não pode ser negativo.")
+                        lines.add(CrochetRepository.OrderLineInput(pid, qty, customPrice, itemNote))
                         quantity = "1"; price = ""; itemNote = ""; error = null
                     }
                 }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Text("Adicionar peça ao pedido") }
@@ -231,7 +233,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                         require(newCustomerName.isNotBlank()) { "Informe o nome do novo cliente." }
                         repository.saveCustomer(savedCustomerId, newCustomerName, newCustomerPhone, newCustomerCity).also { savedCustomerId = it }
                     } else customerId.toLongOrNull()
-                    val paidNow = if (fullPaid) total else decimal(deposit) ?: 0.0
+                    val paidNow = if (fullPaid) total else if (deposit.isBlank()) 0.0 else decimal(deposit) ?: throw IllegalArgumentException("Valor do sinal inválido.")
                     repository.createOrder(customer, lines.toList(), kind, channel, if (kind == "encomenda") dueDate else "", notes, paidNow, depositMethod)
                     onSaved()
                 } catch (e: Exception) { error = e.message ?: "Não foi possível salvar o pedido." }
