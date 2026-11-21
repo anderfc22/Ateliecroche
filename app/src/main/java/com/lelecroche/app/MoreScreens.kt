@@ -25,7 +25,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
     val db = remember { AppDatabase(context.applicationContext) }
     val repo = remember { CrochetRepository(db) }
     val sold = remember {
-        db.rows("SELECT p.name,SUM(i.qty) qty,SUM(i.qty*i.unit_price) revenue,SUM(i.qty*i.unit_cost) cost FROM order_items i JOIN orders o ON o.id=i.order_id JOIN products p ON p.id=i.product_id WHERE o.status NOT IN ('cancelado','solicitado') GROUP BY i.product_id,p.name ORDER BY qty DESC")
+        db.rows("SELECT p.id product_id,p.name,SUM(i.qty) qty,SUM(i.qty*i.unit_price) revenue,SUM(i.qty*i.unit_cost) cost FROM order_items i JOIN orders o ON o.id=i.order_id JOIN products p ON p.id=i.product_id WHERE o.status NOT IN ('cancelado','solicitado') GROUP BY i.product_id,p.name ORDER BY qty DESC")
     }
     val products = remember { db.rows("SELECT id,name,stock FROM products WHERE active=1 ORDER BY name") }
     val margins = remember(products) { products.mapNotNull { p ->
@@ -34,6 +34,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
     } }
     val stockValue = db.scalar("SELECT COALESCE(SUM(stock*avg_cost),0) FROM materials WHERE active=1")
     val finishedValue = margins.sumOf { row -> row.second.cost.total * row.third }
+    val soldByProduct = sold.associate { it["product_id"].orEmpty() to it["qty"].orEmpty() }
     val revenue = sold.sumOf { it["revenue"]?.toDoubleOrNull() ?: 0.0 }
     val profit = sold.sumOf { (it["revenue"]?.toDoubleOrNull() ?: 0.0) - (it["cost"]?.toDoubleOrNull() ?: 0.0) }
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
@@ -63,7 +64,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
         item { Text("Margem por peça", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
         items(margins) { (p, pricing, stock) ->
             Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(10.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(p["name"].orEmpty(), fontWeight = FontWeight.Medium, fontSize = 13.sp); Text("Custo ${moreMoney(pricing.cost.total)} · Preço ${moreMoney(pricing.finalPrice)} · Estoque $stock", color = Color(0xFF424842), fontSize = 10.sp) }
+                Column(Modifier.weight(1f)) { Text(p["name"].orEmpty(), fontWeight = FontWeight.Medium, fontSize = 13.sp); Text("Custo ${moreMoney(pricing.cost.total)} · Preço ${moreMoney(pricing.finalPrice)} · Estoque $stock · Vendidas ${soldByProduct[p["id"]] ?: "0"}", color = Color(0xFF424842), fontSize = 10.sp) }
                 Text(String.format(Locale("pt","BR"), "%.1f%%", pricing.realMarginPercent), color = if (pricing.realMarginPercent < 30) MaterialTheme.colorScheme.error else Color(0xFF42634C), fontWeight = FontWeight.Bold)
             }
         }
