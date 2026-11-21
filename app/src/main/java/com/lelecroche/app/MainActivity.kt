@@ -71,7 +71,7 @@ private fun LeleCrocheApp() {
                         Text("Lelê Crochê", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text(if (selected == 5 && moreSection != null) moreSection!! else destinations[selected].title, color = Muted, fontSize = 12.sp)
                     }
-                    IconButton(onClick = { if (selected == 5 && moreSection != null) moreSection = null else selected = 5 }) { Icon(if (selected == 5 && moreSection != null) Icons.Default.ArrowBack else Icons.Default.Dashboard, if (selected == 5 && moreSection != null) "Voltar" else "Menu") }
+                    IconButton(onClick = { if (selected == 5 && moreSection != null) moreSection = null else { selected = 5; moreSection = null } }) { Icon(if (selected == 5 && moreSection != null) Icons.Default.ArrowBack else Icons.Default.Dashboard, if (selected == 5 && moreSection != null) "Voltar" else "Menu") }
                     Box(Modifier.size(34.dp).background(Color(0xFFC6ECCE), CircleShape), contentAlignment = Alignment.Center) {
                         Text("L", color = PrimaryGreen, fontWeight = FontWeight.Bold)
                     }
@@ -82,7 +82,7 @@ private fun LeleCrocheApp() {
                     destinations.forEachIndexed { index, item ->
                         NavigationBarItem(
                             selected = selected == index,
-                            onClick = { selected = index },
+                            onClick = { selected = index; moreSection = null },
                             icon = { Icon(item.icon, contentDescription = item.title) },
                             label = { Text(item.title, fontSize = 9.sp) },
                             alwaysShowLabel = true
