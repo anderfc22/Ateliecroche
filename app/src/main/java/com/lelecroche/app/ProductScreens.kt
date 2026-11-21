@@ -83,7 +83,7 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
 }
 
 private fun productMoney(value: Double) = "R$ " + String.format(Locale("pt", "BR"), "%.2f", value)
-private fun productNumber(value: String): Double? = value.trim().replace(".", "").replace(",", ".").toDoubleOrNull()
+private fun productNumber(value: String): Double? = value.trim().let { raw -> if (raw.contains(",")) raw.replace(".", "").replace(",", ".").toDoubleOrNull() else raw.toDoubleOrNull() }
 
 @Composable
 private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, productId: Long?, onDismiss: () -> Unit, onSaved: () -> Unit) {
