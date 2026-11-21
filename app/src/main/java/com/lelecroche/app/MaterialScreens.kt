@@ -107,7 +107,7 @@ fun MaterialsScreen(modifier: Modifier = Modifier) {
 
 private fun stockNumber(value: Double) = String.format(Locale("pt", "BR"), "%.3f", value).trimEnd('0').trimEnd(',')
 private fun stockMoney(value: Double) = "R$ " + String.format(Locale("pt", "BR"), "%.2f", value)
-private fun stockDecimal(value: String) = value.trim().replace(".", "").replace(",", ".").toDoubleOrNull()
+private fun stockDecimal(value: String) = value.trim().let { raw -> if (raw.contains(",")) raw.replace(".", "").replace(",", ".").toDoubleOrNull() else raw.toDoubleOrNull() }
 
 @Composable
 private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: Long?, onDismiss: () -> Unit, onSaved: () -> Unit) {
