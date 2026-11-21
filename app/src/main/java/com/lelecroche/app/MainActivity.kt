@@ -94,10 +94,10 @@ private fun LeleCrocheApp() {
             }
         ) { padding ->
             when (selected) {
-                0 -> HomeScreen(Modifier.padding(padding)) { target -> when (target) { "orders" -> { selected = 1; moreSection = null }; "materials" -> { selected = 3; moreSection = null }; "finance" -> { selected = 4; moreSection = null }; "settings" -> { selected = 5; moreSection = "Preço, meta e ateliê" } } }
-                1 -> OrdersScreen(Modifier.padding(padding))
+                0 -> HomeScreen(Modifier.padding(padding)) { target -> when (target) { "orders" -> { selected = 1; moreSection = null }; "newOrder" -> { selected = 1; moreSection = null; startNewOrder = true }; "materials" -> { selected = 3; moreSection = null }; "newMaterial" -> { selected = 3; moreSection = null; startNewMaterial = true }; "finance" -> { selected = 4; moreSection = null }; "settings" -> { selected = 5; moreSection = "Preço, meta e ateliê" } } }
+                1 -> OrdersScreen(Modifier.padding(padding), openCreateOnStart = startNewOrder, onCreateHandled = { startNewOrder = false })
                 2 -> ProductsScreen(Modifier.padding(padding))
-                3 -> MaterialsScreen(Modifier.padding(padding))
+                3 -> MaterialsScreen(Modifier.padding(padding), openNewMaterialOnStart = startNewMaterial, onNewMaterialHandled = { startNewMaterial = false })
                 4 -> FinanceScreen(Modifier.padding(padding))
                 else -> if (moreSection == null) MoreScreen(Modifier.padding(padding)) { moreSection = it }
                     else if (moreSection == "Clientes") NativeCustomersScreen(Modifier.padding(padding)) { moreSection = null }
