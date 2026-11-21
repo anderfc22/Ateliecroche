@@ -241,7 +241,11 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                     val material = CrochetEngine.Material(m["id"]!!.toLong(), m["name"].orEmpty(), m["unit"].orEmpty(), m["meters_per_kg"]?.toDoubleOrNull() ?: 0.0, m["stock"]?.toDoubleOrNull() ?: 0.0, m["min_stock"]?.toDoubleOrNull() ?: 0.0, m["avg_cost"]?.toDoubleOrNull() ?: 0.0)
                     CrochetEngine.RecipeLine(material, q, line.unit)
                 }
-                val savedId = repository.saveProduct(savedProductId, name, description, category, productNumber(labor) ?: 0.0, productNumber(price), productNumber(margin), productNumber(stock), inCatalog, models)
+                val laborValue = productNumber(labor) ?: throw IllegalArgumentException("Informe os minutos de mão de obra.")
+                val priceValue = if (price.isBlank()) null else productNumber(price) ?: throw IllegalArgumentException("Preço manual inválido.")
+                val marginValue = if (margin.isBlank()) null else productNumber(margin) ?: throw IllegalArgumentException("Margem inválida.")
+                val stockValue = if (stock.isBlank()) null else productNumber(stock) ?: throw IllegalArgumentException("Estoque informado é inválido.")
+                val savedId = repository.saveProduct(savedProductId, name, description, category, laborValue, priceValue, marginValue, stockValue, inCatalog, models)
                 savedProductId = savedId
                 photoIds.forEachIndexed { index, photoId -> repository.setProductPhoto(savedId, index + 1, photoId) }
                 onSaved()
