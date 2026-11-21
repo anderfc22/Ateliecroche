@@ -267,26 +267,23 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
                     payments.forEach { p -> Text("${money(p["amount"]?.toDoubleOrNull() ?: 0.0)} · ${p["method"]} · ${p["created_at"]}", fontSize = 11.sp, color = OrderMuted) }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
-            }
-        },
-        confirmButton = {
-            Column(horizontalAlignment = Alignment.End) {
+                Divider()
                 if (order["status"] == "solicitado") {
-                    TextButton(onClick = { try { repository.confirmCatalogRequest(orderId); refresh++ } catch (e: Exception) { error = e.message } }) { Text("Confirmar solicitação") }
-                    TextButton(onClick = { try { repository.rejectCatalogRequest(orderId); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Recusar") }
+                    Button(onClick = { try { repository.confirmCatalogRequest(orderId); refresh++ } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Confirmar solicitação") }
+                    OutlinedButton(onClick = { try { repository.rejectCatalogRequest(orderId); onChanged() } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Recusar") }
                 }
-                if (order["status"] != "solicitado") TextButton(onClick = { showPayment = true }) { Text("Registrar pagamento / estorno") }
+                if (order["status"] != "solicitado") OutlinedButton(onClick = { showPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Registrar pagamento / estorno") }
                 if (order["status"] == "aberto") {
-                    TextButton(onClick = { showEdit = true }) { Text("Editar detalhes") }
+                    OutlinedButton(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) { Text("Editar detalhes") }
                     if (production.any { it["status"] in listOf("fila", "andamento", "acabamento") }) {
-                        TextButton(onClick = { try { repository.advanceOrder(orderId); refresh++ } catch (e: Exception) { error = e.message } }) { Text("Avançar produção") }
+                        OutlinedButton(onClick = { try { repository.advanceOrder(orderId); refresh++ } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Avançar produção") }
                     }
-                    TextButton(onClick = { try { repository.setOrderStatus(orderId, "entregue"); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Marcar como entregue") }
+                    Button(onClick = { try { repository.setOrderStatus(orderId, "entregue"); onChanged() } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Marcar como entregue") }
                 }
                 if (order["status"] != "cancelado") TextButton(onClick = { try { repository.setOrderStatus(orderId, "cancelado"); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Cancelar pedido", color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = onDismiss) { Text("Fechar") }
             }
-        }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } }
     )
     if (showPayment) PaymentDialog(repository, orderId, total - paid, paid, onDismiss = { showPayment = false }, onSaved = { showPayment = false; refresh++ })
     if (showEdit) OrderEditDialog(repository, order, onDismiss = { showEdit = false }, onSaved = { showEdit = false; refresh++ })
