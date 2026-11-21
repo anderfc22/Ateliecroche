@@ -30,12 +30,13 @@ private val OrderMuted = Color(0xFF424842)
 private val OrderCard = Color.White
 
 @Composable
-fun OrdersScreen(modifier: Modifier = Modifier) {
+fun OrdersScreen(modifier: Modifier = Modifier, openCreateOnStart: Boolean = false, onCreateHandled: () -> Unit = {}) {
     val context = LocalContext.current
     val db = remember { AppDatabase(context.applicationContext) }
     val repository = remember { CrochetRepository(db) }
     var refresh by remember { mutableIntStateOf(0) }
-    var showCreate by remember { mutableStateOf(false) }
+    var showCreate by remember { mutableStateOf(openCreateOnStart) }
+    LaunchedEffect(openCreateOnStart) { if (openCreateOnStart) { showCreate = true; onCreateHandled() } }
     var selectedOrder by remember { mutableStateOf<Long?>(null) }
     var filter by remember { mutableStateOf("todas") }
     val orders = remember(refresh, filter) {
