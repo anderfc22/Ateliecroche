@@ -27,7 +27,7 @@ private val ProductGreen = Color(0xFF42634C)
 private val ProductText = Color(0xFF161D19)
 private val ProductMuted = Color(0xFF424842)
 
-private data class RecipeDraft(var materialId: String, var quantity: String, var unit: String)
+private data class RecipeDraft(val materialId: String, val quantity: String, val unit: String)
 
 @Composable
 fun ProductsScreen(modifier: Modifier = Modifier) {
@@ -158,21 +158,20 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(selectedName, modifier = Modifier.weight(1f)); Text("⌄") }
                             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                                 materials.forEach { m -> DropdownMenuItem(text = { Text(m["name"].orEmpty()) }, onClick = {
-                                    line.materialId = m["id"].orEmpty()
-                                    line.unit = m["unit"].orEmpty()
+                                    recipe[index] = line.copy(materialId = m["id"].orEmpty(), unit = m["unit"].orEmpty())
                                     expanded = false
                                 }) }
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            OutlinedTextField(line.quantity, { line.quantity = it }, label = { Text("Quantidade") }, modifier = Modifier.weight(1f), singleLine = true)
+                            OutlinedTextField(line.quantity, { recipe[index] = line.copy(quantity = it) }, label = { Text("Quantidade") }, modifier = Modifier.weight(1f), singleLine = true)
                             var unitExpanded by remember(index) { mutableStateOf(false) }
                             val baseUnit = materials.firstOrNull { it["id"] == line.materialId }?.get("unit").orEmpty()
                             val units = if (baseUnit == "un") listOf("un") else listOf("kg", "m")
                             Box {
                                 OutlinedButton(onClick = { unitExpanded = true }) { Text(line.unit); Text("⌄") }
                                 DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                                    units.forEach { u -> DropdownMenuItem(text = { Text(u) }, onClick = { line.unit = u; unitExpanded = false }) }
+                                    units.forEach { u -> DropdownMenuItem(text = { Text(u) }, onClick = { recipe[index] = line.copy(unit = u); unitExpanded = false }) }
                                 }
                             }
                             IconButton(onClick = { recipe.removeAt(index) }) { Icon(Icons.Default.DeleteOutline, "Remover material") }
