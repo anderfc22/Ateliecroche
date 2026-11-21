@@ -350,7 +350,8 @@ private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Mo
         var extra by remember { mutableStateOf("") }
         var value by remember { mutableStateOf("") }
         var qty by remember { mutableStateOf("0") }
-        var unit by remember { mutableStateOf("un") }\n        var customer by remember { mutableStateOf("") }\n        var kind by remember { mutableStateOf("encomenda") }\n        var due by remember { mutableStateOf("") }
+        var unit by remember { mutableStateOf("un") }
+        var customer by remember { mutableStateOf("") }\n        var kind by remember { mutableStateOf("encomenda") }\n        var due by remember { mutableStateOf("") }
         AlertDialog(onDismissRequest={show=false},title={Text("Novo " + section.lowercase())},text={
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name,{name=it},label={Text(when(section){"Peças"->"Nome da peça";"Estoque"->"Nome do material";"Despesas"->"Descrição";else->"ID da peça"})},singleLine=true)
@@ -367,6 +368,8 @@ private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Mo
                 "Estoque" -> if(name.isNotBlank()) db.saveMaterial(name,extra,"","",unit,qty.toDoubleOrNull()?:0.0,value.toDoubleOrNull()?:0.0,0.0)
                 "Despesas" -> if(name.isNotBlank() && (value.toDoubleOrNull()?:0.0)>0) db.saveExpense(name,value.toDouble(),extra)
                 "Produção" -> { val id=name.toLongOrNull(); val q=qty.toDoubleOrNull()?:0.0; if(id!=null&&q>0) db.addProduction(id,q) }
+                "Pedidos" -> { val id=name.toLongOrNull(); val q=qty.toDoubleOrNull()?:0.0; val p=value.toDoubleOrNull()?:0.0; if(id!=null&&q>0&&p>=0) db.addOrder(customer.toLongOrNull(),id,q,p,kind,due,"",0.0) }
+                "Compras" -> { val id=name.toLongOrNull(); val q=qty.toDoubleOrNull()?:0.0; val p=value.toDoubleOrNull()?:0.0; if(id!=null&&q>0&&p>=0) db.purchase(id,q,p,extra) }
             }
             show=false; refresh++
         }){Text("Salvar")}},dismissButton={TextButton(onClick={show=false}){Text("Cancelar")}})
