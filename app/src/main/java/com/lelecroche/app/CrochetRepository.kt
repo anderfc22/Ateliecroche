@@ -289,6 +289,19 @@ class CrochetRepository(private val helper: AppDatabase) {
         db.insertOrThrow("incomes", null, values("description" to description.take(160), "amount" to amount, "method" to method.take(40), "created_at" to now()))
     }
 
+    fun saveAtelierSettings(atelierName: String, whatsapp: String, instagram: String, catalogOn: Boolean) = transaction { db ->
+        val digits = whatsapp.filter { it.isDigit() }.let { if (it.length == 10 || it.length == 11) "55$it" else it }
+        require(digits.isEmpty() || digits.length in 12..13) { "WhatsApp inválido: use DDD + número" }
+        val handle = instagram.trim().replace(Regex("^https?://(www\\.)?instagram\\.com/"), "").trimStart('@').split('/', '?').first()
+        require(handle.isEmpty() || Regex("^[A-Za-z0-9._]{1,30}$").matches(handle)) { "Usuário do Instagram inválido" }
+        val data = mapOf("atelier_name" to (atelierName.trim().ifBlank { "Meu Ateliê" }.take(60)), "whatsapp" to digits, "instagram" to handle, "catalog_on" to if (catalogOn) "1" else "0")
+        data.forEach { (key, value) -> db.insertWithOnConflict("settings", null, values("skey" to key, "svalue" to value), SQLiteDatabase.CONFLICT_REPLACE) }
+    }
+
+    fun setProductCatalog(productId: Long, enabled: Boolean) = transaction { db ->
+        db.update("products", values("in_catalog" to if (enabled) 1 else 0), "id=?", arrayOf(productId.toString()))
+    }
+
     fun saveNumericSettings(hourlyRate: Double, overheadPerPiece: Double, defaultMarginPercent: Double, monthlyGoal: Double) = transaction { db ->
         require(hourlyRate >= 0 && overheadPerPiece >= 0 && defaultMarginPercent >= 0 && monthlyGoal >= 0)
         mapOf("hourly_rate" to hourlyRate, "overhead_per_piece" to overheadPerPiece, "default_margin_pct" to defaultMarginPercent, "monthly_goal" to monthlyGoal).forEach { (key, value) ->
