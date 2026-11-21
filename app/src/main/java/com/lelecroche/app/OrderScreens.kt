@@ -132,6 +132,10 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
     var price by remember { mutableStateOf("") }
     var itemNote by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf("") }
+    var newCustomerName by remember { mutableStateOf("") }
+    var newCustomerPhone by remember { mutableStateOf("") }
+    var newCustomerCity by remember { mutableStateOf("") }
+    var fullPaid by remember { mutableStateOf(false) }
     var customerExpanded by remember { mutableStateOf(false) }
     var productExpanded by remember { mutableStateOf(false) }
     var kind by remember { mutableStateOf("encomenda") }
@@ -155,13 +159,21 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                 }
                 Box {
                     OutlinedTextField(
-                        value = customers.firstOrNull { it["id"] == customerId }?.get("name") ?: "Sem cliente",
+                        value = when (customerId) { "__new" -> "+ Novo cliente"; "" -> "Sem cliente"; else -> customers.firstOrNull { it["id"] == customerId }?.get("name").orEmpty() },
                         onValueChange = {}, readOnly = true, label = { Text("Cliente") }, modifier = Modifier.fillMaxWidth()
                     )
                     Box(Modifier.matchParentSize().clickable { customerExpanded = true })
                     DropdownMenu(expanded = customerExpanded, onDismissRequest = { customerExpanded = false }) {
                         DropdownMenuItem(text = { Text("Sem cliente") }, onClick = { customerId = ""; customerExpanded = false })
                         customers.forEach { c -> DropdownMenuItem(text = { Text(c["name"].orEmpty() + if (c["city"].orEmpty().isNotBlank()) " · ${c["city"]}" else "") }, onClick = { customerId = c["id"].orEmpty(); customerExpanded = false }) }
+                        DropdownMenuItem(text = { Text("+ Novo cliente…") }, onClick = { customerId = "__new"; customerExpanded = false })
+                    }
+                }
+                if (customerId == "__new") {
+                    OutlinedTextField(newCustomerName, { newCustomerName = it }, label = { Text("Nome do novo cliente") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(newCustomerPhone, { newCustomerPhone = it }, label = { Text("Telefone / WhatsApp") }, modifier = Modifier.weight(1f), singleLine = true)
+                        OutlinedTextField(newCustomerCity, { newCustomerCity = it }, label = { Text("Cidade") }, modifier = Modifier.weight(1f), singleLine = true)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -197,10 +209,16 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                     }
                 }
                 if (lines.isNotEmpty()) Text("Total parcial: ${money(total)}", fontWeight = FontWeight.Bold, color = OrderGreen)
-                OutlinedTextField(value = channel, onValueChange = { channel = it }, label = { Text("Canal de venda") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text("Prazo (AAAA-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = deposit, onValueChange = { deposit = it }, label = { Text("Sinal recebido (R$)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = depositMethod, onValueChange = { depositMethod = it }, label = { Text("Forma do sinal") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (kind == "encomenda") {
+                    OutlinedTextField(value = channel, onValueChange = { channel = it }, label = { Text("Canal de venda") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text("Prazo (AAAA-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = fullPaid, onCheckedChange = { fullPaid = it })
+                    Text("Cliente já pagou o valor total", fontSize = 12.sp)
+                }
+                if (!fullPaid) OutlinedTextField(value = deposit, onValueChange = { deposit = it }, label = { Text("Sinal recebido (R$)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = depositMethod, onValueChange = { depositMethod = it }, label = { Text("Forma do pagamento") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Observações") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
             }
@@ -208,7 +226,12 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
         confirmButton = {
             TextButton(enabled = lines.isNotEmpty(), onClick = {
                 try {
-                    repository.createOrder(customerId.toLongOrNull(), lines.toList(), kind, channel, dueDate, notes, decimal(deposit) ?: 0.0, depositMethod)
+                    val customer = if (customerId == "__new") {
+                        require(newCustomerName.isNotBlank()) { "Informe o nome do novo cliente." }
+                        repository.saveCustomer(null, newCustomerName, newCustomerPhone, newCustomerCity)
+                    } else customerId.toLongOrNull()
+                    val paidNow = if (fullPaid) total else decimal(deposit) ?: 0.0
+                    repository.createOrder(customer, lines.toList(), kind, channel, if (kind == "encomenda") dueDate else "", notes, paidNow, depositMethod)
                     onSaved()
                 } catch (e: Exception) { error = e.message ?: "Não foi possível salvar o pedido." }
             }) { Text("Salvar pedido") }
