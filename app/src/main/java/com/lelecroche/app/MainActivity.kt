@@ -351,7 +351,9 @@ private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Mo
         var value by remember { mutableStateOf("") }
         var qty by remember { mutableStateOf("0") }
         var unit by remember { mutableStateOf("un") }
-        var customer by remember { mutableStateOf("") }\n        var kind by remember { mutableStateOf("encomenda") }\n        var due by remember { mutableStateOf("") }
+        var customer by remember { mutableStateOf("") }
+        var kind by remember { mutableStateOf("encomenda") }
+        var due by remember { mutableStateOf("") }
         AlertDialog(onDismissRequest={show=false},title={Text("Novo " + section.lowercase())},text={
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name,{name=it},label={Text(when(section){"Peças"->"Nome da peça";"Estoque"->"Nome do material";"Despesas"->"Descrição";else->"ID da peça"})},singleLine=true)
