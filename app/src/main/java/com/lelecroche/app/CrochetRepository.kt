@@ -119,6 +119,13 @@ class CrochetRepository(private val helper: AppDatabase) {
         if (deposit > 0) db.insertOrThrow("payments", null, values("order_id" to orderId, "amount" to deposit, "method" to depositMethod.take(40), "created_at" to now())); orderId
     }
 
+    fun addProduction(productId: Long, quantity: Double, orderId: Long? = null): Long = transaction { db ->
+        require(quantity > 0) { "Quantidade deve ser maior que zero" }
+        db.rawQuery("SELECT id FROM products WHERE id=? AND active=1", arrayOf(productId.toString())).use { require(it.moveToFirst()) { "Peça não encontrada" } }
+        if (orderId != null) db.rawQuery("SELECT id FROM orders WHERE id=?", arrayOf(orderId.toString())).use { require(it.moveToFirst()) { "Pedido não encontrado" } }
+        db.insertOrThrow("production_orders", null, values("product_id" to productId, "qty" to quantity, "status" to "fila", "order_id" to orderId, "created_at" to now()))
+    }
+
     private fun finishProduction(db: SQLiteDatabase, productionId: Long) {
         db.rawQuery("SELECT product_id,qty FROM production_orders WHERE id=?", arrayOf(productionId.toString())).use { po ->
             require(po.moveToFirst()) { "Ordem de produção não encontrada" }; val productId = po.long("product_id"); val quantity = po.double("qty")
