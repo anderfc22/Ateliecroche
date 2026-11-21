@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +34,8 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
     var refresh by remember { mutableIntStateOf(0) }
     var month by remember { mutableStateOf(SimpleDateFormat("yyyy-MM", Locale.US).format(Calendar.getInstance().time)) }
     var entryType by remember { mutableStateOf<String?>(null) }
+    var deleteTarget by remember { mutableStateOf<Pair<String, Long>?>(null) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
     val incoming = remember(refresh, month) {
         db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$month'") +
             db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$month'")
@@ -94,12 +97,28 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
                             Text("${entry["created_at"]} · ${entry["method"].orEmpty()}", color = Color(0xFF727972), fontSize = 10.sp)
                         }
                         Text(financeMoney(amount), color = if (amount >= 0) Color(0xFF42634C) else Color(0xFF7F5534), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        if (entry["type"] == "income" || entry["type"] == "expense") IconButton(onClick = { deleteTarget = entry["type"]!! to entry["id"]!!.toLong() }) { Icon(Icons.Default.DeleteOutline, "Excluir lançamento", tint = MaterialTheme.colorScheme.error) }
                     }
                 }
             }
         }
     }
     entryType?.let { type -> FinanceEntryDialog(type, repo, onDismiss = { entryType = null }, onSaved = { entryType = null; refresh++ }) }
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Excluir lançamento?") },
+            text = { Text("Esta ação remove a receita ou despesa avulsa do histórico.") },
+            confirmButton = { TextButton(onClick = {
+                try { repo.deleteFinanceEntry(target.first, target.second); deleteTarget = null; refresh++ }
+                catch (e: Exception) { deleteError = e.message; deleteTarget = null }
+            }) { Text("Excluir", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancelar") } }
+        )
+    }
+    deleteError?.let { msg ->
+        AlertDialog(onDismissRequest = { deleteError = null }, title = { Text("Não foi possível excluir") }, text = { Text(msg) }, confirmButton = { TextButton(onClick = { deleteError = null }) { Text("OK") } })
+    }
 }
 
 @Composable
