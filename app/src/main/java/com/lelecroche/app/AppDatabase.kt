@@ -15,7 +15,7 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db"
         db.execSQL("CREATE TABLE orders(id INTEGER PRIMARY KEY AUTOINCREMENT,customer_id INTEGER,channel TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL,status TEXT NOT NULL,due_date TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',total REAL NOT NULL DEFAULT 0,stock_deducted INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,stage_note TEXT NOT NULL DEFAULT '',source TEXT NOT NULL DEFAULT '')")
         db.execSQL("CREATE TABLE payments(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,amount REAL NOT NULL,method TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
         db.execSQL("CREATE TABLE stock_movements(id INTEGER PRIMARY KEY AUTOINCREMENT,material_id INTEGER NOT NULL,qty REAL NOT NULL,reason TEXT NOT NULL,ref TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
-        db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT,description TEXT NOT NULL,amount REAL NOT NULL,category TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT,description TEXT NOT NULL,amount REAL NOT NULL,category TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,method TEXT NOT NULL DEFAULT '')")
         extended(db)
     }
     private fun extended(db:SQLiteDatabase) {
@@ -52,6 +52,7 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db"
             ensureColumn(db,"orders","stage_note","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"orders","source","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"purchases","method","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"expenses","method","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"expenses","method","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"order_items","note","TEXT NOT NULL DEFAULT ''")
             extended(db)
