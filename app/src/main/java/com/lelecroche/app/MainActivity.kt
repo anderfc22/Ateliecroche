@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -216,8 +217,7 @@ private fun CustomersScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                items(customers.size) { index ->
-                    val customer = customers[index]
+                items(customers) { customer ->
                     Card(colors = CardDefaults.cardColors(containerColor = CardWhite), shape = RoundedCornerShape(13.dp)) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(40.dp).background(Color(0xFFE5F1E5), CircleShape), contentAlignment = Alignment.Center) {
