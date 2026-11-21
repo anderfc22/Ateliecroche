@@ -45,10 +45,10 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
             db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE substr(created_at,1,7)='$month'")
     }
     val cash = remember(refresh) {
-        db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments") +
-            db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes") -
-            db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases") -
-            db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
+        db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)<='$month'") +
+            db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)<='$month'") -
+            db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases WHERE substr(created_at,1,7)<='$month'") -
+            db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE substr(created_at,1,7)<='$month'")
     }
     val receivable = remember(refresh) {
         db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
