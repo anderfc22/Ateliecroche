@@ -270,7 +270,7 @@ private fun ModuleScreen(modifier: Modifier, title: String, description: String,
 
 @Composable
 private fun MoreScreen(modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
-    val entries = listOf("Clientes", "Produção", "Despesas", "Lista de compras", "Relatórios", "Catálogo para clientes", "Preço, meta e ateliê", "Backup e dados")
+    val entries = listOf("Clientes", "Produção", "Lista de compras", "Relatórios", "Catálogo para clientes", "Preço, meta e ateliê", "Backup e dados")
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Mais opções", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
         entries.forEach { entry ->
