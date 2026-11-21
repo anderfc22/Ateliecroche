@@ -45,8 +45,7 @@ private fun LeleCrocheApp() {
         Destination("Encomendas", Icons.Default.ReceiptLong),
         Destination("Peças", Icons.Default.Cottage),
         Destination("Estoque", Icons.Default.Inventory2),
-        Destination("Financeiro", Icons.Default.AccountBalanceWallet),
-        Destination("Mais", Icons.Default.GridView)
+        Destination("Financeiro", Icons.Default.AccountBalanceWallet)
     )
     var selected by remember { mutableIntStateOf(0) }
     var moreSection by remember { mutableStateOf<String?>(null) }
@@ -70,9 +69,9 @@ private fun LeleCrocheApp() {
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text("Lelê Crochê", color = PrimaryGreen, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium, fontSize = 20.sp)
-                        Text(if (selected == 5 && moreSection != null) moreSection!! else destinations[selected].title, color = Muted, fontSize = 12.sp)
+                        Text(if (selected == 5) moreSection ?: "Mais opções" else destinations[selected].title, color = Muted, fontSize = 12.sp)
                     }
-                    IconButton(onClick = { if (selected == 5 && moreSection != null) moreSection = null else { selected = 5; moreSection = null } }) { Icon(if (selected == 5 && moreSection != null) Icons.Default.ArrowBack else Icons.Default.Dashboard, if (selected == 5 && moreSection != null) "Voltar" else "Menu") }
+                    IconButton(onClick = { if (selected == 5 && moreSection != null) moreSection = null else { selected = 5; moreSection = null } }) { Icon(if (selected == 5 && moreSection != null) Icons.Default.ArrowBack else Icons.Default.GridView, if (selected == 5 && moreSection != null) "Voltar" else "Mais opções") }
                     Box(Modifier.size(34.dp).background(Color(0xFFC6ECCE), CircleShape), contentAlignment = Alignment.Center) {
                         Text("L", color = PrimaryGreen, fontWeight = FontWeight.Bold)
                     }
