@@ -92,6 +92,10 @@ class CrochetRepository(private val helper: AppDatabase) {
         if (c.moveToFirst()) c.getString(0) else null
     }
 
+    fun setMaterialPhoto(materialId: Long, photoId: Long?) = transaction { db ->
+        db.update("materials", values("photo_id" to photoId), "id=?", arrayOf(materialId.toString()))
+    }
+
     fun setProductPhoto(productId: Long, slot: Int, photoId: Long?) = transaction { db ->
         val column = when (slot) { 1 -> "photo_id"; 2 -> "photo2_id"; 3 -> "photo3_id"; else -> throw IllegalArgumentException("Foto inválida") }
         db.update("products", values(column to photoId), "id=?", arrayOf(productId.toString()))
