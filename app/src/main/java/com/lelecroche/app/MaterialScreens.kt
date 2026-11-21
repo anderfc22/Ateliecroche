@@ -256,7 +256,11 @@ private fun PurchaseDialog(material: Map<String, String>, repo: CrochetRepositor
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
         }
     }, confirmButton = { TextButton(onClick = {
-        try { repo.recordPurchase(material["id"]!!.toLong(), stockDecimal(quantity) ?: 0.0, unit, stockDecimal(total) ?: 0.0, supplier, lot, method); onSaved() }
+        try {
+            val qty = stockDecimal(quantity) ?: throw IllegalArgumentException("Quantidade inválida.")
+            val cost = stockDecimal(total) ?: throw IllegalArgumentException("Informe o valor total pago.")
+            repo.recordPurchase(material["id"]!!.toLong(), qty, unit, cost, supplier, lot, method); onSaved()
+        }
         catch (e: Exception) { error = e.message ?: "Compra inválida" }
     }) { Text("Registrar entrada") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
 }
@@ -282,7 +286,11 @@ private fun AdjustmentDialog(material: Map<String, String>, repo: CrochetReposit
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
         }
     }, confirmButton = { TextButton(onClick = {
-        try { var q = stockDecimal(quantity) ?: 0.0; if (reason == "perda") q = -kotlin.math.abs(q); repo.adjustMaterialStock(material["id"]!!.toLong(), q, unit, reason, note); onSaved() }
+        try {
+            var q = stockDecimal(quantity) ?: throw IllegalArgumentException("Quantidade inválida.")
+            if (reason == "perda") q = -kotlin.math.abs(q)
+            repo.adjustMaterialStock(material["id"]!!.toLong(), q, unit, reason, note); onSaved()
+        }
         catch (e: Exception) { error = e.message ?: "Ajuste inválido" }
     }) { Text("Salvar ajuste") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
 }
