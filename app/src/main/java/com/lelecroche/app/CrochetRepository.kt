@@ -155,4 +155,116 @@ class CrochetRepository(private val helper: AppDatabase) {
         val pending = mutableListOf<Pair<Long, String>>(); db.rawQuery("SELECT id,status FROM production_orders WHERE order_id=? AND status IN ('fila','andamento','acabamento') ORDER BY id", arrayOf(orderId.toString())).use { c -> while (c.moveToNext()) pending += c.long("id") to c.string("status") }
         require(pending.isNotEmpty()) { "Esta encomenda não tem peças em produção" }; pending.forEach { (id, status) -> setProductionStatusInternal(db, id, CrochetEngine.productionNext(status)) }
     }
+
+    data class MaterialDemand(val material: CrochetEngine.Material, val required: Double, val shortage: Double, val blockedOrderIds: List<Long>)
+
+    fun saveMaterial(id: Long?, name: String, kind: String = "fio", color: String = "", brand: String = "", unit: String, metersPerKg: Double = 0.0, minimumStock: Double = 0.0): Long = transaction { db ->
+        require(name.isNotBlank()) { "Informe o nome do material" }
+        require(unit in setOf("kg", "m", "un")) { "Unidade deve ser kg, m ou un" }
+        require(metersPerKg >= 0 && minimumStock >= 0)
+        if (id == null) {
+            db.insertOrThrow("materials", null, values("name" to name.trim(), "kind" to kind.take(40), "color" to color.take(80), "brand" to brand.take(80), "unit" to unit, "meters_per_kg" to metersPerKg, "min_stock" to minimumStock))
+        } else {
+            val old = material(db, id)
+            if (old.unit != unit) {
+                val movements = db.rawQuery("SELECT COUNT(*) n FROM stock_movements WHERE material_id=?", arrayOf(id.toString())).use { c -> c.moveToFirst(); c.getInt(0) }
+                require(movements == 0) { "A unidade não pode mudar depois que o material teve movimentações" }
+            }
+            db.update("materials", values("name" to name.trim(), "kind" to kind.take(40), "color" to color.take(80), "brand" to brand.take(80), "unit" to unit, "meters_per_kg" to metersPerKg, "min_stock" to minimumStock), "id=?", arrayOf(id.toString()))
+            id
+        }
+    }
+
+    fun materialDemand(): List<MaterialDemand> {
+        val db = helper.readableDatabase
+        data class Acc(val material: CrochetEngine.Material, var required: Double = 0.0, val orders: MutableSet<Long> = linkedSetOf())
+        val totals = linkedMapOf<Long, Acc>()
+        db.rawQuery("SELECT id,product_id,qty,order_id FROM production_orders WHERE status IN ('fila','andamento','acabamento') ORDER BY id", null).use { production ->
+            while (production.moveToNext()) {
+                val orderId = if (production.isNull(production.getColumnIndexOrThrow("order_id"))) null else production.getLong(production.getColumnIndexOrThrow("order_id"))
+                val productId = production.getLong(production.getColumnIndexOrThrow("product_id"))
+                val quantity = production.getDouble(production.getColumnIndexOrThrow("qty"))
+                db.rawQuery("SELECT r.qty,r.unit,m.id material_id,m.name,m.unit material_unit,m.meters_per_kg,m.stock,m.min_stock,m.avg_cost FROM recipe_items r JOIN materials m ON m.id=r.material_id WHERE r.product_id=?", arrayOf(productId.toString())).use { recipe ->
+                    while (recipe.moveToNext()) {
+                        val material = CrochetEngine.Material(recipe.getLong(recipe.getColumnIndexOrThrow("material_id")), recipe.getString(recipe.getColumnIndexOrThrow("name")), recipe.getString(recipe.getColumnIndexOrThrow("material_unit")), recipe.getDouble(recipe.getColumnIndexOrThrow("meters_per_kg")), recipe.getDouble(recipe.getColumnIndexOrThrow("stock")), recipe.getDouble(recipe.getColumnIndexOrThrow("min_stock")), recipe.getDouble(recipe.getColumnIndexOrThrow("avg_cost")))
+                        val needed = try { CrochetEngine.convert(material, recipe.getDouble(recipe.getColumnIndexOrThrow("qty")), recipe.getString(recipe.getColumnIndexOrThrow("unit"))) * quantity } catch (_: IllegalArgumentException) { continue }
+                        val acc = totals.getOrPut(material.id) { Acc(material) }
+                        acc.required += needed
+                        if (orderId != null) acc.orders += orderId
+                    }
+                }
+            }
+        }
+        return totals.values.map { MaterialDemand(it.material, it.required, (it.required - it.material.stock).coerceAtLeast(0.0), it.orders.toList()) }
+    }
+
+    fun shoppingSuggestion(materialId: Long): Double {
+        val m = material(helper.readableDatabase, materialId)
+        return CrochetEngine.shoppingSuggestion(m.minStock, m.stock)
+    }
+
+    fun addToShoppingList(materialId: Long, quantity: Double = 0.0) = transaction { db ->
+        require(quantity >= 0)
+        material(db, materialId)
+        db.insertWithOnConflict("shopping_list", null, values("material_id" to materialId, "qty" to quantity, "created_at" to now()), SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun removeFromShoppingList(materialId: Long) = transaction { db ->
+        db.delete("shopping_list", "material_id=?", arrayOf(materialId.toString()))
+    }
+
+    fun confirmCatalogRequest(orderId: Long, dueDate: String = "") = transaction { db ->
+        db.rawQuery("SELECT status FROM orders WHERE id=?", arrayOf(orderId.toString())).use { c ->
+            require(c.moveToFirst()) { "Pedido não encontrado" }
+            require(c.string("status") == "solicitado") { "Este pedido não pode ser confirmado" }
+        }
+        db.update("orders", values("status" to "aberto", "kind" to "encomenda", "due_date" to dueDate), "id=?", arrayOf(orderId.toString()))
+        val quantities = linkedMapOf<Long, Double>()
+        db.rawQuery("SELECT product_id,qty FROM order_items WHERE order_id=? ORDER BY id", arrayOf(orderId.toString())).use { c ->
+            while (c.moveToNext()) {
+                val pid = c.getLong(c.getColumnIndexOrThrow("product_id"))
+                quantities[pid] = (quantities[pid] ?: 0.0) + c.getDouble(c.getColumnIndexOrThrow("qty"))
+            }
+        }
+        quantities.forEach { (pid, qty) ->
+            val stock = db.rawQuery("SELECT stock FROM products WHERE id=?", arrayOf(pid.toString())).use { c -> require(c.moveToFirst()); c.getDouble(0) }
+            val shortage = qty - stock
+            if (shortage > CrochetEngine.EPSILON) {
+                db.insertOrThrow("production_orders", null, values("product_id" to pid, "qty" to shortage, "status" to "fila", "order_id" to orderId, "created_at" to now()))
+            }
+        }
+    }
+
+    fun rejectCatalogRequest(orderId: Long) = transaction { db ->
+        db.rawQuery("SELECT status FROM orders WHERE id=?", arrayOf(orderId.toString())).use { c ->
+            require(c.moveToFirst()) { "Pedido não encontrado" }
+            require(c.string("status") == "solicitado") { "Este pedido não pode ser recusado" }
+        }
+        db.update("orders", values("status" to "cancelado"), "id=?", arrayOf(orderId.toString()))
+    }
+
+    fun updateOrder(orderId: Long, dueDate: String, stageNote: String, notes: String, channel: String) = transaction { db ->
+        db.rawQuery("SELECT id FROM orders WHERE id=?", arrayOf(orderId.toString())).use { require(it.moveToFirst()) { "Pedido não encontrado" } }
+        db.update("orders", values("due_date" to dueDate, "stage_note" to stageNote.take(160), "notes" to notes.take(255), "channel" to channel.take(40)), "id=?", arrayOf(orderId.toString()))
+    }
+
+    fun addExpense(description: String, amount: Double, category: String = "", method: String = "") = transaction { db ->
+        require(description.isNotBlank()) { "Informe a descrição da despesa" }
+        require(amount > 0) { "Valor deve ser maior que zero" }
+        db.insertOrThrow("expenses", null, values("description" to description.take(160), "amount" to amount, "category" to category.take(60), "method" to method.take(40), "created_at" to now()))
+    }
+
+    fun addIncome(description: String, amount: Double, method: String = "") = transaction { db ->
+        require(description.isNotBlank()) { "Informe a descrição da receita" }
+        require(amount > 0) { "Valor deve ser maior que zero" }
+        db.insertOrThrow("incomes", null, values("description" to description.take(160), "amount" to amount, "method" to method.take(40), "created_at" to now()))
+    }
+
+    fun saveNumericSettings(hourlyRate: Double, overheadPerPiece: Double, defaultMarginPercent: Double, monthlyGoal: Double) = transaction { db ->
+        require(hourlyRate >= 0 && overheadPerPiece >= 0 && defaultMarginPercent >= 0 && monthlyGoal >= 0)
+        mapOf("hourly_rate" to hourlyRate, "overhead_per_piece" to overheadPerPiece, "default_margin_pct" to defaultMarginPercent, "monthly_goal" to monthlyGoal).forEach { (key, value) ->
+            db.insertWithOnConflict("settings", null, values("skey" to key, "svalue" to value.toString()), SQLiteDatabase.CONFLICT_REPLACE)
+        }
+    }
+
 }
