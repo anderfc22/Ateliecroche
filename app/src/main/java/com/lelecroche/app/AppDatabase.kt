@@ -7,12 +7,12 @@ import android.database.sqlite.SQLiteOpenHelper
 
 data class Customer(val id: Long, val name: String, val phone: String, val notes: String)
 
-class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db", null, 2) {
+class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE customers(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '')")
-        db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,description TEXT NOT NULL DEFAULT '',labor_minutes REAL NOT NULL DEFAULT 0,price REAL,margin_pct REAL,stock REAL NOT NULL DEFAULT 0,active INTEGER NOT NULL DEFAULT 1,category TEXT NOT NULL DEFAULT '')")
-        db.execSQL("CREATE TABLE materials(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,kind TEXT NOT NULL DEFAULT 'fio',color TEXT NOT NULL DEFAULT '',brand TEXT NOT NULL DEFAULT '',unit TEXT NOT NULL,meters_per_kg REAL NOT NULL DEFAULT 0,stock REAL NOT NULL DEFAULT 0,min_stock REAL NOT NULL DEFAULT 0,avg_cost REAL NOT NULL DEFAULT 0,active INTEGER NOT NULL DEFAULT 1)")
-        db.execSQL("CREATE TABLE orders(id INTEGER PRIMARY KEY AUTOINCREMENT,customer_id INTEGER,channel TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL,status TEXT NOT NULL,due_date TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',total REAL NOT NULL DEFAULT 0,stock_deducted INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE customers(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',city TEXT NOT NULL DEFAULT '')")
+        db.execSQL("CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,description TEXT NOT NULL DEFAULT '',labor_minutes REAL NOT NULL DEFAULT 0,price REAL,margin_pct REAL,stock REAL NOT NULL DEFAULT 0,active INTEGER NOT NULL DEFAULT 1,category TEXT NOT NULL DEFAULT '',photo_id INTEGER,photo2_id INTEGER,photo3_id INTEGER,in_catalog INTEGER NOT NULL DEFAULT 1)")
+        db.execSQL("CREATE TABLE materials(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,kind TEXT NOT NULL DEFAULT 'fio',color TEXT NOT NULL DEFAULT '',brand TEXT NOT NULL DEFAULT '',unit TEXT NOT NULL,meters_per_kg REAL NOT NULL DEFAULT 0,stock REAL NOT NULL DEFAULT 0,min_stock REAL NOT NULL DEFAULT 0,avg_cost REAL NOT NULL DEFAULT 0,active INTEGER NOT NULL DEFAULT 1,supplier TEXT NOT NULL DEFAULT '',lot TEXT NOT NULL DEFAULT '',photo_id INTEGER)")
+        db.execSQL("CREATE TABLE orders(id INTEGER PRIMARY KEY AUTOINCREMENT,customer_id INTEGER,channel TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL,status TEXT NOT NULL,due_date TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',total REAL NOT NULL DEFAULT 0,stock_deducted INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,stage_note TEXT NOT NULL DEFAULT '',source TEXT NOT NULL DEFAULT '')")
         db.execSQL("CREATE TABLE payments(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,amount REAL NOT NULL,method TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
         db.execSQL("CREATE TABLE stock_movements(id INTEGER PRIMARY KEY AUTOINCREMENT,material_id INTEGER NOT NULL,qty REAL NOT NULL,reason TEXT NOT NULL,ref TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
         db.execSQL("CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT,description TEXT NOT NULL,amount REAL NOT NULL,category TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
@@ -20,13 +20,42 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db"
     }
     private fun extended(db:SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS recipe_items(id INTEGER PRIMARY KEY AUTOINCREMENT,product_id INTEGER NOT NULL,material_id INTEGER NOT NULL,qty REAL NOT NULL,unit TEXT NOT NULL)")
-        db.execSQL("CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER NOT NULL,qty REAL NOT NULL,unit_price REAL NOT NULL,unit_cost REAL NOT NULL DEFAULT 0)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER NOT NULL,qty REAL NOT NULL,unit_price REAL NOT NULL,unit_cost REAL NOT NULL DEFAULT 0,note TEXT NOT NULL DEFAULT '')")
         db.execSQL("CREATE TABLE IF NOT EXISTS production_orders(id INTEGER PRIMARY KEY AUTOINCREMENT,product_id INTEGER NOT NULL,qty REAL NOT NULL,status TEXT NOT NULL DEFAULT 'fila',order_id INTEGER,created_at TEXT NOT NULL,finished_at TEXT)")
-        db.execSQL("CREATE TABLE IF NOT EXISTS purchases(id INTEGER PRIMARY KEY AUTOINCREMENT,material_id INTEGER NOT NULL,qty REAL NOT NULL,total_cost REAL NOT NULL,supplier TEXT NOT NULL DEFAULT '',lot TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS purchases(id INTEGER PRIMARY KEY AUTOINCREMENT,material_id INTEGER NOT NULL,qty REAL NOT NULL,total_cost REAL NOT NULL,supplier TEXT NOT NULL DEFAULT '',lot TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,method TEXT NOT NULL DEFAULT '')")
         db.execSQL("CREATE TABLE IF NOT EXISTS settings(skey TEXT PRIMARY KEY,svalue TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS incomes(id INTEGER PRIMARY KEY AUTOINCREMENT,description TEXT NOT NULL,amount REAL NOT NULL,method TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS shopping_list(id INTEGER PRIMARY KEY AUTOINCREMENT,material_id INTEGER NOT NULL UNIQUE,qty REAL NOT NULL DEFAULT 0,created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY AUTOINCREMENT,mime TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS catalog_hits(id INTEGER PRIMARY KEY AUTOINCREMENT,ip_hash TEXT NOT NULL,created_at TEXT NOT NULL)")
+    }
+    private fun ensureColumn(db:SQLiteDatabase, table:String, column:String, definition:String) {
+        val exists = db.rawQuery("PRAGMA table_info($table)", null).use { c ->
+            var found = false
+            while(c.moveToNext()) if(c.getString(c.getColumnIndexOrThrow("name")) == column) found = true
+            found
+        }
+        if(!exists) db.execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
     }
     override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int) {
-        if(oldVersion<2){ try{db.execSQL("ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT ''")}catch(_:Exception){}; extended(db) }
+        // Migração aditiva: preserva os registros já existentes no aparelho.
+        if(oldVersion < 3) {
+            ensureColumn(db,"customers","city","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"materials","supplier","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"materials","lot","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"materials","photo_id","INTEGER")
+            ensureColumn(db,"products","category","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"products","photo_id","INTEGER")
+            ensureColumn(db,"products","photo2_id","INTEGER")
+            ensureColumn(db,"products","photo3_id","INTEGER")
+            ensureColumn(db,"products","in_catalog","INTEGER NOT NULL DEFAULT 1")
+            ensureColumn(db,"orders","stage_note","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"orders","source","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"purchases","method","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"expenses","method","TEXT NOT NULL DEFAULT ''")
+            ensureColumn(db,"order_items","note","TEXT NOT NULL DEFAULT ''")
+            extended(db)
+        }
     }
     private fun now()=java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",java.util.Locale.getDefault()).format(java.util.Date())
     private fun cv(vararg p:Pair<String,Any?>)=ContentValues().apply{p.forEach{(k,v)->when(v){null->putNull(k);is String->put(k,v);is Int->put(k,v);is Long->put(k,v);is Double->put(k,v);is Float->put(k,v);else->put(k,v.toString())}}}
