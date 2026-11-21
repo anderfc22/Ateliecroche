@@ -224,14 +224,25 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
     var showEdit by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val order = remember(orderId, refresh) { db.rows("SELECT o.*,COALESCE(c.name,'Sem cliente') customer FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=?", arrayOf(orderId.toString())).firstOrNull() }
-    val items = remember(orderId, refresh) { db.rows("SELECT i.*,p.name product_name FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=? ORDER BY i.id", arrayOf(orderId.toString())) }
+    val items = remember(orderId, refresh) { db.rows("SELECT i.*,p.name product_name,p.stock product_stock FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=? ORDER BY i.id", arrayOf(orderId.toString())) }
     val payments = remember(orderId, refresh) { db.rows("SELECT * FROM payments WHERE order_id=? ORDER BY id", arrayOf(orderId.toString())) }
     val production = remember(orderId, refresh) { db.rows("SELECT po.*,p.name product_name FROM production_orders po JOIN products p ON p.id=po.product_id WHERE po.order_id=? ORDER BY po.id", arrayOf(orderId.toString())) }
     val blocked = remember(orderId, refresh) { repository.orderMaterialShortages(orderId) }
     if (order == null) return
     val total = order["total"]?.toDoubleOrNull() ?: 0.0
     val paid = payments.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
-    val progress = CrochetEngine.orderProgress(production.map { (it["qty"]?.toDoubleOrNull() ?: 0.0) to it["status"].orEmpty() }, order["status"].orEmpty())
+    val activeProduction = production.filter { it["status"] != "cancelada" }
+    val progress = CrochetEngine.orderProgress(activeProduction.map { (it["qty"]?.toDoubleOrNull() ?: 0.0) to it["status"].orEmpty() }, order["status"].orEmpty())
+    val phase = when (order["status"]) {
+        "entregue", "cancelado", "solicitado" -> order["status"].orEmpty()
+        else -> when {
+            activeProduction.isNotEmpty() && activeProduction.all { it["status"] == "pronta" } -> "pronta"
+            activeProduction.any { it["status"] != "fila" } -> "produção"
+            activeProduction.isNotEmpty() -> "aguardando"
+            items.isNotEmpty() && items.all { (it["product_stock"]?.toDoubleOrNull() ?: 0.0) + CrochetEngine.EPSILON >= (it["qty"]?.toDoubleOrNull() ?: 0.0) } -> "pronta"
+            else -> "aguardando"
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text((if (order["kind"] == "encomenda") "ENC-" else "VND-") + orderId) },
@@ -239,6 +250,7 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
             Column(Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(order["customer"].orEmpty(), fontWeight = FontWeight.SemiBold)
                 StatusPill(order["status"].orEmpty())
+                Text("Fase: ${phase.replaceFirstChar { it.uppercase() }}", color = OrderMuted, fontSize = 11.sp)
                 if (order["due_date"].orEmpty().isNotBlank()) Text("Prazo: ${order["due_date"]}", color = OrderMuted, fontSize = 12.sp)
                 if (production.isNotEmpty()) Text("Progresso da produção: $progress%", color = OrderGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 if (order["stage_note"].orEmpty().isNotBlank()) Text(order["stage_note"].orEmpty(), color = OrderMuted, fontSize = 12.sp)
