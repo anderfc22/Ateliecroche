@@ -20,8 +20,8 @@ class CrochetEngineTest {
     }
 
     @Test fun calculatesFullProductCostAndSuggestedPrice() {
-        val yarn = CrochetEngine.Material(name = "Fio", unit = "g", averageCost = 0.08)
-        val recipe = listOf(CrochetEngine.RecipeLine(yarn, 100.0, "g"))
+        val yarn = CrochetEngine.Material(name = "Fio", unit = "kg", averageCost = 80.0)
+        val recipe = listOf(CrochetEngine.RecipeLine(yarn, 0.1, "kg"))
         val cost = CrochetEngine.calculateCost(recipe, laborMinutes = 120.0, hourlyRate = 15.0, overheadPerPiece = 2.0)
         assertEquals(8.0, cost.materials, 1e-9)
         assertEquals(30.0, cost.labor, 1e-9)
