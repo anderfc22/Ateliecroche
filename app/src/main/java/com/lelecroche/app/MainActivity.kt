@@ -101,7 +101,7 @@ private fun LeleCrocheApp() {
                     else if (moreSection == "Clientes") NativeCustomersScreen(Modifier.padding(padding)) { moreSection = null }
                     else if (moreSection == "Produção") ProductionScreen(Modifier.padding(padding))
                     else if (moreSection == "Despesas") FinanceScreen(Modifier.padding(padding))
-                    else if (moreSection == "Lista de compras") MaterialsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Lista de compras") MaterialsScreen(Modifier.padding(padding), openShoppingOnStart = true)
                     else if (moreSection == "Relatórios") ReportsScreen(Modifier.padding(padding))
                     else if (moreSection == "Catálogo para clientes") CatalogSettingsScreen(Modifier.padding(padding))
                     else if (moreSection == "Preço, meta e ateliê") AtelierSettingsScreen(Modifier.padding(padding))
