@@ -256,6 +256,28 @@ class CrochetRepository(private val helper: AppDatabase) {
         }
     }
 
+    fun orderMaterialShortages(orderId: Long): List<MaterialDemand> {
+        val db = helper.readableDatabase
+        val status = db.rawQuery("SELECT status FROM orders WHERE id=?", arrayOf(orderId.toString())).use { c -> if (c.moveToFirst()) c.getString(0) else return emptyList() }
+        if (status != "aberto") return emptyList()
+        data class Acc(val material: CrochetEngine.Material, var required: Double = 0.0)
+        val totals = linkedMapOf<Long, Acc>()
+        db.rawQuery("SELECT product_id,qty FROM production_orders WHERE order_id=? AND status IN ('fila','andamento','acabamento')", arrayOf(orderId.toString())).use { po ->
+            while (po.moveToNext()) {
+                val productId = po.getLong(po.getColumnIndexOrThrow("product_id"))
+                val quantity = po.getDouble(po.getColumnIndexOrThrow("qty"))
+                db.rawQuery("SELECT r.qty,r.unit,m.id material_id,m.name,m.unit material_unit,m.meters_per_kg,m.stock,m.min_stock,m.avg_cost FROM recipe_items r JOIN materials m ON m.id=r.material_id WHERE r.product_id=?", arrayOf(productId.toString())).use { recipe ->
+                    while (recipe.moveToNext()) {
+                        val m = CrochetEngine.Material(recipe.getLong(recipe.getColumnIndexOrThrow("material_id")), recipe.getString(recipe.getColumnIndexOrThrow("name")), recipe.getString(recipe.getColumnIndexOrThrow("material_unit")), recipe.getDouble(recipe.getColumnIndexOrThrow("meters_per_kg")), recipe.getDouble(recipe.getColumnIndexOrThrow("stock")), recipe.getDouble(recipe.getColumnIndexOrThrow("min_stock")), recipe.getDouble(recipe.getColumnIndexOrThrow("avg_cost")))
+                        val needed = try { CrochetEngine.convert(m, recipe.getDouble(recipe.getColumnIndexOrThrow("qty")), recipe.getString(recipe.getColumnIndexOrThrow("unit"))) * quantity } catch (_: IllegalArgumentException) { continue }
+                        val acc = totals.getOrPut(m.id) { Acc(m) }; acc.required += needed
+                    }
+                }
+            }
+        }
+        return totals.values.map { MaterialDemand(it.material, it.required, (it.required - it.material.stock).coerceAtLeast(0.0), listOf(orderId)) }.filter { it.shortage > CrochetEngine.EPSILON }
+    }
+
     fun materialDemand(): List<MaterialDemand> {
         val db = helper.readableDatabase
         data class Acc(val material: CrochetEngine.Material, var required: Double = 0.0, val orders: MutableSet<Long> = linkedSetOf())
