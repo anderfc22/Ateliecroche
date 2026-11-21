@@ -123,10 +123,10 @@ private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Un
     val production = db.scalar("SELECT COUNT(DISTINCT o.id) FROM orders o WHERE o.status='aberto' AND EXISTS(SELECT 1 FROM production_orders p WHERE p.order_id=o.id AND p.status IN ('andamento','acabamento','pronta')) AND EXISTS(SELECT 1 FROM production_orders p WHERE p.order_id=o.id AND p.status IN ('fila','andamento','acabamento'))").toInt()
     val readyPieces = db.scalar("SELECT COALESCE(SUM(stock),0) FROM products WHERE active=1")
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
-    val cashIn = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes")
-    val cashOut = db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
-    val cash = cashIn - cashOut
     val monthKey = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(java.util.Date())
+    val cashIn = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)<='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)<='$monthKey'")
+    val cashOut = db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases WHERE substr(created_at,1,7)<='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE substr(created_at,1,7)<='$monthKey'")
+    val cash = cashIn - cashOut
     val previousCalendar = java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH, -1) }
     val previousMonth = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(previousCalendar.time)
     val monthRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$monthKey'")
