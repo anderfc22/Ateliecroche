@@ -123,10 +123,10 @@ fun AtelierSettingsScreen(modifier: Modifier = Modifier) {
             item { if (saved) Text("Configurações salvas neste aparelho.", color = Color(0xFF42634C), fontSize = 12.sp) }
             item { Button(onClick = {
                 try {
-                    val h = moreNumber(hourly) ?: 0.0
-                    val o = moreNumber(overhead) ?: 0.0
-                    val m = moreNumber(margin) ?: 0.0
-                    val g = moreNumber(goal) ?: 0.0
+                    val h = if (hourly.isBlank()) 0.0 else moreNumber(hourly) ?: throw IllegalArgumentException("Valor da hora inválido.")
+                    val o = if (overhead.isBlank()) 0.0 else moreNumber(overhead) ?: throw IllegalArgumentException("Rateio por peça inválido.")
+                    val m = if (margin.isBlank()) 0.0 else moreNumber(margin) ?: throw IllegalArgumentException("Margem padrão inválida.")
+                    val g = if (goal.isBlank()) 0.0 else moreNumber(goal) ?: throw IllegalArgumentException("Meta mensal inválida.")
                     repo.saveNumericSettings(h, o, m, g)
                     repo.saveAtelierSettings(atelier, whatsapp, instagram, catalogOn)
                     saved = true; error = null
