@@ -118,6 +118,7 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
         mutableStateListOf<Long?>(product?.get("photo_id")?.toLongOrNull(), product?.get("photo2_id")?.toLongOrNull(), product?.get("photo3_id")?.toLongOrNull())
     }
     var photoSlot by remember { mutableIntStateOf(0) }
+    var savedProductId by remember(productId) { mutableStateOf(productId) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
@@ -234,7 +235,8 @@ private fun ProductEditorDialog(db: AppDatabase, repository: CrochetRepository, 
                     val material = CrochetEngine.Material(m["id"]!!.toLong(), m["name"].orEmpty(), m["unit"].orEmpty(), m["meters_per_kg"]?.toDoubleOrNull() ?: 0.0, m["stock"]?.toDoubleOrNull() ?: 0.0, m["min_stock"]?.toDoubleOrNull() ?: 0.0, m["avg_cost"]?.toDoubleOrNull() ?: 0.0)
                     CrochetEngine.RecipeLine(material, q, line.unit)
                 }
-                val savedId = repository.saveProduct(productId, name, description, category, productNumber(labor) ?: 0.0, productNumber(price), productNumber(margin), productNumber(stock), inCatalog, models)
+                val savedId = repository.saveProduct(savedProductId, name, description, category, productNumber(labor) ?: 0.0, productNumber(price), productNumber(margin), productNumber(stock), inCatalog, models)
+                savedProductId = savedId
                 photoIds.forEachIndexed { index, photoId -> repository.setProductPhoto(savedId, index + 1, photoId) }
                 onSaved()
             } catch (e: Exception) { error = e.message ?: "Não foi possível salvar a peça." }
