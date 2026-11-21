@@ -41,7 +41,7 @@ private data class Destination(val title: String, val icon: androidx.compose.ui.
 private fun LeleCrocheApp() {
     val destinations = listOf(
         Destination("Início", Icons.Default.Home),
-        Destination("Pedidos", Icons.Default.ReceiptLong),
+        Destination("Encomendas", Icons.Default.ReceiptLong),
         Destination("Peças", Icons.Default.Cottage),
         Destination("Estoque", Icons.Default.Inventory2),
         Destination("Financeiro", Icons.Default.AccountBalanceWallet),
@@ -93,7 +93,7 @@ private fun LeleCrocheApp() {
         ) { padding ->
             when (selected) {
                 0 -> HomeScreen(Modifier.padding(padding))
-                1 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Pedidos", Modifier.padding(padding))
+                1 -> OrdersScreen(Modifier.padding(padding))
                 2 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Peças", Modifier.padding(padding))
                 3 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Estoque", Modifier.padding(padding))
                 4 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Financeiro", Modifier.padding(padding))
