@@ -125,6 +125,12 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
     val cashIn = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes")
     val cashOut = db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
     val cash = cashIn - cashOut
+    val monthKey = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(java.util.Date())
+    val monthRevenue = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$monthKey'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$monthKey'")
+    val monthlyGoal = db.rows("SELECT svalue FROM settings WHERE skey='monthly_goal'").firstOrNull()?.get("svalue")?.toDoubleOrNull() ?: 0.0
+    val goalPercent = if (monthlyGoal > 0) (monthRevenue / monthlyGoal * 100).toInt() else 0
+    val dueWeek = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)>=date('now','localtime') AND date(due_date)<=date('now','localtime','+7 day')").toInt()
+    val overdue = db.scalar("SELECT COUNT(*) FROM orders WHERE status='aberto' AND due_date<>'' AND date(due_date)<date('now','localtime')").toInt()
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(
@@ -137,6 +143,13 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
             }
         }
         item { Text("Visão geral", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
+        item {
+            Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Faturamento do mês", color = Muted, fontSize = 12.sp)
+                Text("R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", monthRevenue), color = PrimaryGreen, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
+                if (monthlyGoal > 0) Text("$goalPercent% da meta de R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", monthlyGoal), color = Muted, fontSize = 11.sp)
+            }
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("Encomendas abertas", openOrders.toString(), "Em acompanhamento", Modifier.weight(1f))
@@ -155,12 +168,14 @@ private fun HomeScreen(modifier: Modifier = Modifier) {
                 MetricCard("Caixa acumulado", "R$ " + String.format(java.util.Locale("pt","BR"), "%.2f", cash), "Pagamentos + receitas − saídas", Modifier.weight(1f))
             }
         }
-        if (requests > 0 || lowMaterials > 0) {
+        if (requests > 0 || lowMaterials > 0 || dueWeek > 0 || overdue > 0) {
             item {
                 Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Atenção", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     if (requests > 0) Text("$requests pedido(s) do catálogo aguardando confirmação", color = Terracotta, fontSize = 13.sp)
                     if (lowMaterials > 0) Text("$lowMaterials material(is) com estoque baixo", color = Terracotta, fontSize = 13.sp)
+                    if (dueWeek > 0) Text("$dueWeek encomenda(s) vencem nos próximos 7 dias", color = Terracotta, fontSize = 13.sp)
+                    if (overdue > 0) Text("$overdue encomenda(s) atrasada(s)", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                 }
             }
         }
