@@ -33,7 +33,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
         Triple(p, pricing, p["stock"]?.toDoubleOrNull() ?: 0.0)
     } }
     val stockValue = db.scalar("SELECT COALESCE(SUM(stock*avg_cost),0) FROM materials WHERE active=1")
-    val finishedValue = margins.sumOf { it.first.let { _ -> it.second.cost.total * it.third } }
+    val finishedValue = margins.sumOf { row -> row.second.cost.total * row.third }
     val revenue = sold.sumOf { it["revenue"]?.toDoubleOrNull() ?: 0.0 }
     val profit = sold.sumOf { (it["revenue"]?.toDoubleOrNull() ?: 0.0) - (it["cost"]?.toDoubleOrNull() ?: 0.0) }
     val receivable = db.scalar("SELECT COALESCE(SUM(MAX(o.total-COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.order_id=o.id),0),0)),0) FROM orders o WHERE o.status NOT IN ('cancelado','solicitado')")
@@ -140,6 +140,7 @@ fun CatalogSettingsScreen(modifier: Modifier = Modifier) {
     val repo = remember { CrochetRepository(db) }
     var refresh by remember { mutableIntStateOf(0) }
     var catalogOn by remember { mutableStateOf(db.rows("SELECT svalue FROM settings WHERE skey='catalog_on'").firstOrNull()?.get("svalue") == "1") }
+    val atelierName = remember { db.rows("SELECT svalue FROM settings WHERE skey='atelier_name'").firstOrNull()?.get("svalue") ?: "Meu Ateliê" }
     var whatsapp by remember { mutableStateOf(db.rows("SELECT svalue FROM settings WHERE skey='whatsapp'").firstOrNull()?.get("svalue").orEmpty()) }
     var instagram by remember { mutableStateOf(db.rows("SELECT svalue FROM settings WHERE skey='instagram'").firstOrNull()?.get("svalue").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -152,7 +153,7 @@ fun CatalogSettingsScreen(modifier: Modifier = Modifier) {
         OutlinedTextField(whatsapp, { whatsapp = it }, label = { Text("WhatsApp do ateliê") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         OutlinedTextField(instagram, { instagram = it }, label = { Text("Instagram") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
-        Button(onClick = { try { repo.saveAtelierSettings("Meu Ateliê", whatsapp, instagram, catalogOn); error = null } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Salvar catálogo e contato") }
+        Button(onClick = { try { repo.saveAtelierSettings(atelierName, whatsapp, instagram, catalogOn); error = null } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Salvar catálogo e contato") }
         Spacer(Modifier.height(10.dp))
         Text("Peças no catálogo", fontWeight = FontWeight.SemiBold)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(5.dp)) {
