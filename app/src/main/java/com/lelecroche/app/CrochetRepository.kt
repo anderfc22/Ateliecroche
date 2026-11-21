@@ -83,6 +83,20 @@ class CrochetRepository(private val helper: AppDatabase) {
         }
     }
 
+    fun storePhoto(mime: String, base64Data: String): Long = transaction { db ->
+        require(mime.startsWith("image/") && base64Data.isNotBlank())
+        db.insertOrThrow("photos", null, values("mime" to mime.take(20), "data" to base64Data, "created_at" to now()))
+    }
+
+    fun photoBase64(photoId: Long): String? = helper.readableDatabase.rawQuery("SELECT data FROM photos WHERE id=?", arrayOf(photoId.toString())).use { c ->
+        if (c.moveToFirst()) c.getString(0) else null
+    }
+
+    fun setProductPhoto(productId: Long, slot: Int, photoId: Long?) = transaction { db ->
+        val column = when (slot) { 1 -> "photo_id"; 2 -> "photo2_id"; 3 -> "photo3_id"; else -> throw IllegalArgumentException("Foto inválida") }
+        db.update("products", values(column to photoId), "id=?", arrayOf(productId.toString()))
+    }
+
     fun previewProductPricing(productId: Long): CrochetEngine.ProductPricing = productPricing(helper.readableDatabase, productId)
 
     fun archiveProduct(productId: Long) = transaction { db ->
