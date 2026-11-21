@@ -53,7 +53,6 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db"
             ensureColumn(db,"orders","source","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"purchases","method","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"expenses","method","TEXT NOT NULL DEFAULT ''")
-            ensureColumn(db,"expenses","method","TEXT NOT NULL DEFAULT ''")
             ensureColumn(db,"order_items","note","TEXT NOT NULL DEFAULT ''")
             extended(db)
         }
