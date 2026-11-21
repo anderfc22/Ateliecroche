@@ -268,9 +268,9 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
                     TextButton(onClick = { try { repository.confirmCatalogRequest(orderId); refresh++ } catch (e: Exception) { error = e.message } }) { Text("Confirmar solicitação") }
                     TextButton(onClick = { try { repository.rejectCatalogRequest(orderId); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Recusar") }
                 }
+                if (order["status"] != "solicitado") TextButton(onClick = { showPayment = true }) { Text("Registrar pagamento / estorno") }
                 if (order["status"] == "aberto") {
                     TextButton(onClick = { showEdit = true }) { Text("Editar detalhes") }
-                    TextButton(onClick = { showPayment = true }) { Text("Registrar pagamento") }
                     if (production.any { it["status"] in listOf("fila", "andamento", "acabamento") }) {
                         TextButton(onClick = { try { repository.advanceOrder(orderId); refresh++ } catch (e: Exception) { error = e.message } }) { Text("Avançar produção") }
                     }
