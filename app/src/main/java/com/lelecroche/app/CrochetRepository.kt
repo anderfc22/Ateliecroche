@@ -119,6 +119,14 @@ class CrochetRepository(private val helper: AppDatabase) {
         if (deposit > 0) db.insertOrThrow("payments", null, values("order_id" to orderId, "amount" to deposit, "method" to depositMethod.take(40), "created_at" to now())); orderId
     }
 
+    fun archiveMaterial(materialId: Long) = transaction { db ->
+        material(db, materialId)
+        val used = db.rawQuery("SELECT COUNT(*) FROM recipe_items r JOIN products p ON p.id=r.product_id WHERE r.material_id=? AND p.active=1", arrayOf(materialId.toString())).use { c -> c.moveToFirst(); c.getInt(0) }
+        require(used == 0) { "Material usado em receitas ativas; remova-o das receitas primeiro" }
+        db.delete("shopping_list", "material_id=?", arrayOf(materialId.toString()))
+        db.update("materials", values("active" to 0), "id=?", arrayOf(materialId.toString()))
+    }
+
     fun addProduction(productId: Long, quantity: Double, orderId: Long? = null): Long = transaction { db ->
         require(quantity > 0) { "Quantidade deve ser maior que zero" }
         db.rawQuery("SELECT id FROM products WHERE id=? AND active=1", arrayOf(productId.toString())).use { require(it.moveToFirst()) { "Peça não encontrada" } }
