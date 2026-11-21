@@ -105,6 +105,7 @@ private fun LeleCrocheApp() {
                     else if (moreSection == "Relatórios") ReportsScreen(Modifier.padding(padding))
                     else if (moreSection == "Catálogo para clientes") CatalogSettingsScreen(Modifier.padding(padding))
                     else if (moreSection == "Preço, meta e ateliê") AtelierSettingsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Backup e dados") BackupScreen(Modifier.padding(padding))
                     else DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), moreSection!!, Modifier.padding(padding))
             }
         }
