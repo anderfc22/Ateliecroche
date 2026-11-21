@@ -217,6 +217,7 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
 private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, orderId: Long, onDismiss: () -> Unit, onChanged: () -> Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     var showPayment by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val order = remember(orderId, refresh) { db.rows("SELECT o.*,COALESCE(c.name,'Sem cliente') customer FROM orders o LEFT JOIN customers c ON c.id=o.customer_id WHERE o.id=?", arrayOf(orderId.toString())).firstOrNull() }
     val items = remember(orderId, refresh) { db.rows("SELECT i.*,p.name product_name FROM order_items i JOIN products p ON p.id=i.product_id WHERE i.order_id=? ORDER BY i.id", arrayOf(orderId.toString())) }
@@ -263,6 +264,7 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
                     TextButton(onClick = { try { repository.rejectCatalogRequest(orderId); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Recusar") }
                 }
                 if (order["status"] == "aberto") {
+                    TextButton(onClick = { showEdit = true }) { Text("Editar detalhes") }
                     TextButton(onClick = { showPayment = true }) { Text("Registrar pagamento") }
                     if (production.any { it["status"] in listOf("fila", "andamento", "acabamento") }) {
                         TextButton(onClick = { try { repository.advanceOrder(orderId); refresh++ } catch (e: Exception) { error = e.message } }) { Text("Avançar produção") }
@@ -275,6 +277,29 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
         }
     )
     if (showPayment) PaymentDialog(repository, orderId, total - paid, paid, onDismiss = { showPayment = false }, onSaved = { showPayment = false; refresh++ })
+    if (showEdit) OrderEditDialog(repository, order, onDismiss = { showEdit = false }, onSaved = { showEdit = false; refresh++ })
+}
+
+@Composable
+private fun OrderEditDialog(repository: CrochetRepository, order: Map<String, String>, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    val id = order["id"]!!.toLong()
+    var dueDate by remember { mutableStateOf(order["due_date"].orEmpty()) }
+    var stageNote by remember { mutableStateOf(order["stage_note"].orEmpty()) }
+    var notes by remember { mutableStateOf(order["notes"].orEmpty()) }
+    var channel by remember { mutableStateOf(order["channel"].orEmpty()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Editar pedido") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(dueDate, { dueDate = it }, label = { Text("Prazo (AAAA-MM-DD)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(channel, { channel = it }, label = { Text("Canal") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(stageNote, { stageNote = it }, label = { Text("Observação da etapa") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(notes, { notes = it }, label = { Text("Observações do pedido") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+        }
+    }, confirmButton = { TextButton(onClick = {
+        try { repository.updateOrder(id, dueDate, stageNote, notes, channel); onSaved() }
+        catch (e: Exception) { error = e.message ?: "Não foi possível atualizar o pedido." }
+    }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
 }
 
 @Composable
