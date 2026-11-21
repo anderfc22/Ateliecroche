@@ -101,7 +101,10 @@ private fun LeleCrocheApp() {
                     else if (moreSection == "Clientes") NativeCustomersScreen(Modifier.padding(padding)) { moreSection = null }
                     else if (moreSection == "Produção") ProductionScreen(Modifier.padding(padding))
                     else if (moreSection == "Despesas") FinanceScreen(Modifier.padding(padding))
-                    else if (moreSection == "Compras" || moreSection == "Histórico de estoque") MaterialsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Lista de compras") MaterialsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Relatórios") ReportsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Catálogo para clientes") CatalogSettingsScreen(Modifier.padding(padding))
+                    else if (moreSection == "Preço, meta e ateliê") AtelierSettingsScreen(Modifier.padding(padding))
                     else DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), moreSection!!, Modifier.padding(padding))
             }
         }
@@ -200,7 +203,7 @@ private fun ModuleScreen(modifier: Modifier, title: String, description: String,
 
 @Composable
 private fun MoreScreen(modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
-    val entries = listOf("Clientes", "Produção", "Despesas", "Compras", "Histórico de estoque", "Relatórios", "Catálogo público", "Configurações", "Backup e dados")
+    val entries = listOf("Clientes", "Produção", "Despesas", "Lista de compras", "Relatórios", "Catálogo para clientes", "Preço, meta e ateliê", "Backup e dados")
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Mais opções", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
         entries.forEach { entry ->
