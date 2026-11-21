@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -68,7 +69,7 @@ private fun LeleCrocheApp() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Lelê Crochê", color = PrimaryGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Lelê Crochê", color = PrimaryGreen, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium, fontSize = 20.sp)
                         Text(if (selected == 5 && moreSection != null) moreSection!! else destinations[selected].title, color = Muted, fontSize = 12.sp)
                     }
                     IconButton(onClick = { if (selected == 5 && moreSection != null) moreSection = null else { selected = 5; moreSection = null } }) { Icon(if (selected == 5 && moreSection != null) Icons.Default.ArrowBack else Icons.Default.Dashboard, if (selected == 5 && moreSection != null) "Voltar" else "Menu") }
@@ -147,7 +148,7 @@ private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Un
                     Spacer(Modifier.weight(1f))
                     Text(dateLabel, color = Muted, fontSize = 11.sp)
                 }
-                Text("Olá, $atelierName", color = TextDark, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Text("Olá, $atelierName", color = TextDark, fontFamily = FontFamily.Serif, fontSize = 25.sp, fontWeight = FontWeight.Medium)
                 Text(if (openOrders > 0) "$openOrders encomenda(s) em aberto" + if (dueWeek > 0) ", $dueWeek com prazo nos próximos 7 dias." else ". Bom trabalho nas agulhas!" else "Nenhuma encomenda em aberto agora. Bom trabalho nas agulhas!", color = Muted, fontSize = 13.sp)
             }
         }
