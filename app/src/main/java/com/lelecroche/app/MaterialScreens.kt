@@ -37,14 +37,15 @@ private val StockText = Color(0xFF161D19)
 private val StockMuted = Color(0xFF424842)
 
 @Composable
-fun MaterialsScreen(modifier: Modifier = Modifier, openShoppingOnStart: Boolean = false) {
+fun MaterialsScreen(modifier: Modifier = Modifier, openShoppingOnStart: Boolean = false, openNewMaterialOnStart: Boolean = false, onNewMaterialHandled: () -> Unit = {}) {
     val context = LocalContext.current
     val db = remember { AppDatabase(context.applicationContext) }
     val repo = remember { CrochetRepository(db) }
     var refresh by remember { mutableIntStateOf(0) }
     var editingId by remember { mutableStateOf<Long?>(null) }
     var actionId by remember { mutableStateOf<Long?>(null) }
-    var showEditor by remember { mutableStateOf(false) }
+    var showEditor by remember { mutableStateOf(openNewMaterialOnStart) }
+    LaunchedEffect(openNewMaterialOnStart) { if (openNewMaterialOnStart) { showEditor = true; onNewMaterialHandled() } }
     var showInventory by remember { mutableStateOf(false) }
     var showShopping by remember { mutableStateOf(openShoppingOnStart) }
     var showHistory by remember { mutableStateOf(false) }
