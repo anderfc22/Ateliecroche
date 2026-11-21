@@ -120,7 +120,7 @@ private fun StatusPill(status: String) {
 }
 
 private fun money(value: Double): String = "R$ " + String.format(Locale("pt", "BR"), "%.2f", value)
-private fun decimal(value: String): Double? = value.trim().replace(".", "").replace(",", ".").toDoubleOrNull()
+private fun decimal(value: String): Double? = value.trim().let { raw -> if (raw.contains(",")) raw.replace(".", "").replace(",", ".").toDoubleOrNull() else raw.toDoubleOrNull() }
 
 @Composable
 private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDismiss: () -> Unit, onSaved: () -> Unit) {
