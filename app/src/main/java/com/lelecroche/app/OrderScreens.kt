@@ -227,6 +227,7 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
     if (order == null) return
     val total = order["total"]?.toDoubleOrNull() ?: 0.0
     val paid = payments.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
+    val progress = CrochetEngine.orderProgress(production.map { (it["qty"]?.toDoubleOrNull() ?: 0.0) to it["status"].orEmpty() }, order["status"].orEmpty())
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text((if (order["kind"] == "encomenda") "ENC-" else "VND-") + orderId) },
@@ -234,6 +235,9 @@ private fun OrderDetailDialog(db: AppDatabase, repository: CrochetRepository, or
             Column(Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(order["customer"].orEmpty(), fontWeight = FontWeight.SemiBold)
                 StatusPill(order["status"].orEmpty())
+                if (order["due_date"].orEmpty().isNotBlank()) Text("Prazo: ${order["due_date"]}", color = OrderMuted, fontSize = 12.sp)
+                if (production.isNotEmpty()) Text("Progresso da produção: $progress%", color = OrderGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                if (order["stage_note"].orEmpty().isNotBlank()) Text(order["stage_note"].orEmpty(), color = OrderMuted, fontSize = 12.sp)
                 Text("Itens", fontWeight = FontWeight.Bold)
                 items.forEach { line ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
