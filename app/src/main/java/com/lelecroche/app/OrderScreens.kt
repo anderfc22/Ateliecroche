@@ -194,10 +194,12 @@ private fun NewOrderDialog(db: AppDatabase, repository: CrochetRepository, onDis
                     val qty = decimal(quantity)
                     if (pid == null || qty == null || qty <= 0) error = "Selecione uma peça e informe uma quantidade válida."
                     else {
-                        val customPrice = if (price.isBlank()) null else decimal(price) ?: throw IllegalArgumentException("Preço unitário inválido.")
-                        if (customPrice != null && customPrice < 0) throw IllegalArgumentException("Preço unitário não pode ser negativo.")
-                        lines.add(CrochetRepository.OrderLineInput(pid, qty, customPrice, itemNote))
-                        quantity = "1"; price = ""; itemNote = ""; error = null
+                        try {
+                            val customPrice = if (price.isBlank()) null else decimal(price) ?: throw IllegalArgumentException("Preço unitário inválido.")
+                            if (customPrice != null && customPrice < 0) throw IllegalArgumentException("Preço unitário não pode ser negativo.")
+                            lines.add(CrochetRepository.OrderLineInput(pid, qty, customPrice, itemNote))
+                            quantity = "1"; price = ""; itemNote = ""; error = null
+                        } catch (e: Exception) { error = e.message ?: "Preço unitário inválido." }
                     }
                 }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Text("Adicionar peça ao pedido") }
                 lines.forEachIndexed { index, line ->
