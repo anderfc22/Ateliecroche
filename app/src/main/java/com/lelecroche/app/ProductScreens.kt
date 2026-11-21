@@ -46,7 +46,7 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
     var editingId by remember { mutableStateOf<Long?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val products = remember(refresh) { db.rows("SELECT id,name,description,category,price,stock,labor_minutes,in_catalog FROM products WHERE active=1 ORDER BY name COLLATE NOCASE") }
+    val products = remember(refresh) { db.rows("SELECT id,name,description,category,price,stock,labor_minutes,in_catalog,photo_id FROM products WHERE active=1 ORDER BY name COLLATE NOCASE") }
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -71,6 +71,10 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
                     val pricing = remember(refresh, id) { runCatching { repository.previewProductPricing(id) }.getOrNull() }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
                         Row(Modifier.fillMaxWidth().clickable { editingId = id; showEditor = true }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val photoId = p["photo_id"]?.toLongOrNull()
+                            val imageData = remember(refresh, photoId) { photoId?.let { repository.photoBase64(it) } }
+                            val imageBitmap = remember(imageData) { imageData?.let { data -> runCatching { val bytes = Base64.decode(data, Base64.DEFAULT); BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() } }
+                            if (imageBitmap != null) Image(imageBitmap.asImageBitmap(), contentDescription = p["name"], modifier = Modifier.size(58.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(p["name"].orEmpty(), fontWeight = FontWeight.SemiBold, color = ProductText)
                                 Text(listOf(p["category"].orEmpty(), "Estoque: ${p["stock"].orEmpty()}").filter { it.isNotBlank() }.joinToString(" · "), color = ProductMuted, fontSize = 11.sp)
