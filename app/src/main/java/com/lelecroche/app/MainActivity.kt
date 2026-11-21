@@ -49,6 +49,8 @@ private fun LeleCrocheApp() {
     )
     var selected by remember { mutableIntStateOf(0) }
     var moreSection by remember { mutableStateOf<String?>(null) }
+    var startNewOrder by remember { mutableStateOf(false) }
+    var startNewMaterial by remember { mutableStateOf(false) }
 
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -166,7 +168,7 @@ private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Un
             Column(Modifier.fillMaxWidth().background(CardWhite, RoundedCornerShape(14.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("Comece por aqui", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text("Cadastre seu primeiro material e suas peças para acompanhar custos, estoque e encomendas.", color = Muted, fontSize = 12.sp)
-                Button(onClick = { onNavigate("materials") }, modifier = Modifier.fillMaxWidth()) { Text("Cadastrar primeiro material") }
+                Button(onClick = { onNavigate("newMaterial") }, modifier = Modifier.fillMaxWidth()) { Text("Cadastrar primeiro material") }
             }
         }
         if (lowCount > 0) item {
@@ -219,8 +221,8 @@ private fun HomeScreen(modifier: Modifier = Modifier, onNavigate: (String) -> Un
         item { Text("Ações rápidas", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextDark) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Button(onClick = { onNavigate("orders") }, modifier = Modifier.weight(1f)) { Text("＋ Nova encomenda", fontSize = 11.sp) }
-                OutlinedButton(onClick = { onNavigate("materials") }, modifier = Modifier.weight(1f)) { Text("＋ Novo material", fontSize = 11.sp) }
+                Button(onClick = { onNavigate("newOrder") }, modifier = Modifier.weight(1f)) { Text("＋ Nova encomenda", fontSize = 11.sp) }
+                OutlinedButton(onClick = { onNavigate("newMaterial") }, modifier = Modifier.weight(1f)) { Text("＋ Novo material", fontSize = 11.sp) }
             }
         }
         item {
