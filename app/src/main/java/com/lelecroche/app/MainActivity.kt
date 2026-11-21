@@ -98,7 +98,7 @@ private fun LeleCrocheApp() {
                 3 -> MaterialsScreen(Modifier.padding(padding))
                 4 -> FinanceScreen(Modifier.padding(padding))
                 else -> if (moreSection == null) MoreScreen(Modifier.padding(padding)) { moreSection = it }
-                    else if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }
+                    else if (moreSection == "Clientes") NativeCustomersScreen(Modifier.padding(padding)) { moreSection = null }
                     else if (moreSection == "Produção") ProductionScreen(Modifier.padding(padding))
                     else if (moreSection == "Despesas") FinanceScreen(Modifier.padding(padding))
                     else if (moreSection == "Compras" || moreSection == "Histórico de estoque") MaterialsScreen(Modifier.padding(padding))
