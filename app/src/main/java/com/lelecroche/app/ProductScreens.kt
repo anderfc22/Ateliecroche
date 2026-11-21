@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -82,6 +83,7 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
                                 if (p["in_catalog"] == "1") Text("No catálogo", color = ProductMuted, fontSize = 10.sp)
                             }
                             IconButton(onClick = { editingId = id; showEditor = true }) { Icon(Icons.Default.Edit, "Editar", tint = ProductGreen) }
+                            IconButton(onClick = { try { repository.duplicateProduct(id); refresh++ } catch (e: Exception) { error = e.message } }) { Icon(Icons.Default.ContentCopy, "Duplicar", tint = ProductGreen) }
                             IconButton(onClick = { try { repository.archiveProduct(id); refresh++ } catch (e: Exception) { error = e.message } }) { Icon(Icons.Default.DeleteOutline, "Arquivar", tint = MaterialTheme.colorScheme.error) }
                         }
                     }
