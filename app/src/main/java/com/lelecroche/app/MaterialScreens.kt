@@ -168,6 +168,7 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
 private fun MaterialActionsDialog(db: AppDatabase, repo: CrochetRepository, id: Long, onDismiss: () -> Unit, onEdit: () -> Unit, onChanged: () -> Unit) {
     val material = remember(id) { db.rows("SELECT * FROM materials WHERE id=?", arrayOf(id.toString())).firstOrNull() }
     var action by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
     if (material == null) return
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -178,8 +179,10 @@ private fun MaterialActionsDialog(db: AppDatabase, repo: CrochetRepository, id: 
                 Text("Custo médio: ${stockMoney(material["avg_cost"]?.toDoubleOrNull() ?: 0.0)}", color = StockMuted, fontSize = 12.sp)
                 OutlinedButton(onClick = { action = "compra" }, modifier = Modifier.fillMaxWidth()) { Text("Registrar entrada / compra") }
                 OutlinedButton(onClick = { action = "ajuste" }, modifier = Modifier.fillMaxWidth()) { Text("Perda ou ajuste de estoque") }
-                OutlinedButton(onClick = { try { repo.addToShoppingList(id, repo.shoppingSuggestion(id)); onChanged() } catch (_: Exception) {} }, modifier = Modifier.fillMaxWidth()) { Text("Adicionar à lista de compras") }
+                OutlinedButton(onClick = { try { repo.addToShoppingList(id, repo.shoppingSuggestion(id)); onChanged() } catch (e: Exception) { error = e.message } }, modifier = Modifier.fillMaxWidth()) { Text("Adicionar à lista de compras") }
                 TextButton(onClick = onEdit) { Text("Editar material") }
+                TextButton(onClick = { try { repo.archiveMaterial(id); onChanged() } catch (e: Exception) { error = e.message } }) { Text("Arquivar material", color = MaterialTheme.colorScheme.error) }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } }
