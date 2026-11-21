@@ -19,6 +19,7 @@ object CrochetEngine {
     /** Conversão original: mesma unidade; kg <-> m exige metros por kg; unidade não converte. */
     fun convert(material: Material, quantity: Double, fromUnit: String): Double {
         require(quantity.isFinite()) { "Quantidade inválida" }
+        require(fromUnit in setOf("kg", "m", "un") && material.unit in setOf("kg", "m", "un")) { "Unidade deve ser kg, m ou un" }
         if (fromUnit == material.unit) return quantity
         require(fromUnit != "un" && material.unit != "un") { "'${material.name}' é controlado em ${material.unit}; use a mesma unidade" }
         require(material.metersPerKg > 0.0) { "Informe os metros por kg de '${material.name}' para converter entre kg e m" }
