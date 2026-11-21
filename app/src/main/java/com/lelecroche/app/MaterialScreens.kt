@@ -185,11 +185,13 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
         },
         confirmButton = { TextButton(onClick = {
             try {
-                val savedId = repo.saveMaterial(savedMaterialId, name, kind, color, brand, unit, stockDecimal(metersPerKg) ?: 0.0, stockDecimal(minimum) ?: 0.0)
+                val metersValue = if (metersPerKg.isBlank()) 0.0 else stockDecimal(metersPerKg) ?: throw IllegalArgumentException("Metros por kg inválido.")
+                val minimumValue = if (minimum.isBlank()) 0.0 else stockDecimal(minimum) ?: throw IllegalArgumentException("Estoque mínimo inválido.")
+                val savedId = repo.saveMaterial(savedMaterialId, name, kind, color, brand, unit, metersValue, minimumValue)
                 savedMaterialId = savedId
                 repo.setMaterialPhoto(savedId, photoId)
-                val qty = stockDecimal(initialQty) ?: 0.0
-                val cost = stockDecimal(initialCost) ?: 0.0
+                val qty = if (initialQty.isBlank()) 0.0 else stockDecimal(initialQty) ?: throw IllegalArgumentException("Quantidade inicial inválida.")
+                val cost = if (initialCost.isBlank()) 0.0 else stockDecimal(initialCost) ?: throw IllegalArgumentException("Custo inicial inválido.")
                 if (id == null && qty > 0 && !initialPurchaseDone) { repo.recordPurchase(savedId, qty, unit, cost, brand); initialPurchaseDone = true }
                 onSaved()
             } catch (e: Exception) { error = e.message ?: "Não foi possível salvar o material." }
