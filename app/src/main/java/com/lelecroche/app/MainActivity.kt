@@ -93,10 +93,10 @@ private fun LeleCrocheApp() {
         ) { padding ->
             when (selected) {
                 0 -> HomeScreen(Modifier.padding(padding))
-                1 -> ModuleScreen(Modifier.padding(padding), "Encomendas", "Acompanhe pedidos, prazos, pagamentos e andamento da produção.", Icons.Default.ReceiptLong)
-                2 -> ModuleScreen(Modifier.padding(padding), "Peças", "Cadastre peças, receitas, materiais utilizados e preços.", Icons.Default.Cottage)
-                3 -> ModuleScreen(Modifier.padding(padding), "Estoque", "Controle fios, materiais, compras e movimentações.", Icons.Default.Inventory2)
-                4 -> ModuleScreen(Modifier.padding(padding), "Financeiro", "Consulte receitas, despesas, fluxo de caixa e relatórios.", Icons.Default.AccountBalanceWallet)
+                1 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Pedidos", Modifier.padding(padding))
+                2 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Peças", Modifier.padding(padding))
+                3 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Estoque", Modifier.padding(padding))
+                4 -> DataScreen(AppDatabase(androidx.compose.ui.platform.LocalContext.current), "Financeiro", Modifier.padding(padding))
                 else -> if (moreSection == "Clientes") CustomersScreen(Modifier.padding(padding)) { moreSection = null }
                     else MoreScreen(Modifier.padding(padding)) { moreSection = it }
             }
@@ -170,7 +170,7 @@ private fun ModuleScreen(modifier: Modifier, title: String, description: String,
 
 @Composable
 private fun MoreScreen(modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
-    val entries = listOf("Clientes", "Produção", "Relatórios", "Catálogo público", "Configurações", "Backup e dados")
+    val entries = listOf("Clientes", "Produção", "Despesas", "Compras", "Histórico de estoque", "Relatórios", "Catálogo público", "Configurações", "Backup e dados")
     Column(modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Mais opções", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
         entries.forEach { entry ->
@@ -273,5 +273,99 @@ private fun CustomersScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancelar") } }
         )
+    }
+}
+
+
+@Composable
+private fun DataScreen(db: AppDatabase, section: String, modifier: Modifier = Modifier) {
+    var refresh by remember { mutableIntStateOf(0) }
+    var show by remember { mutableStateOf(false) }
+    val table = when(section) {
+        "Pedidos" -> "orders"
+        "Peças" -> "products"
+        "Estoque" -> "materials"
+        "Produção" -> "production_orders"
+        "Despesas" -> "expenses"
+        "Compras" -> "purchases"
+        "Histórico de estoque" -> "stock_movements"
+        else -> "customers"
+    }
+    val rows = remember(refresh, section) {
+        when(section) {
+            "Pedidos" -> db.rows("SELECT o.id,o.kind,o.status,o.due_date,o.total,COALESCE(c.name,'Sem cliente') AS person FROM orders o LEFT JOIN customers c ON c.id=o.customer_id ORDER BY o.id DESC")
+            "Peças" -> db.rows("SELECT * FROM products ORDER BY name")
+            "Estoque" -> db.rows("SELECT * FROM materials ORDER BY name")
+            "Produção" -> db.rows("SELECT po.id,po.qty,po.status,p.name AS person FROM production_orders po JOIN products p ON p.id=po.product_id ORDER BY po.id DESC")
+            "Despesas" -> db.rows("SELECT * FROM expenses ORDER BY id DESC")
+            "Compras" -> db.rows("SELECT pu.id,pu.qty,pu.total_cost,m.name AS person FROM purchases pu JOIN materials m ON m.id=pu.material_id ORDER BY pu.id DESC")
+            "Histórico de estoque" -> db.rows("SELECT sm.id,sm.qty,sm.reason,sm.created_at,m.name AS person FROM stock_movements sm JOIN materials m ON m.id=sm.material_id ORDER BY sm.id DESC")
+            else -> emptyList()
+        }
+    }
+    Column(modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(section, fontSize = 23.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
+                Text(rows.size.toString() + " registro(s)", color = Muted, fontSize = 12.sp)
+            }
+            if (section in listOf("Peças","Estoque","Despesas","Produção")) Button(onClick = { show = true }) { Icon(Icons.Default.Add,null); Text(" Novo") }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (section == "Financeiro") {
+            val paid = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments")
+            val costs = db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses")
+            val open = db.scalar("SELECT COALESCE(SUM(total),0) FROM orders WHERE status!='cancelado'") - paid
+            listOf("Recebido" to paid, "Despesas" to costs, "A receber" to open.coerceAtLeast(0.0), "Resultado" to paid-costs).forEach {
+                Card(Modifier.fillMaxWidth().padding(bottom=9.dp), colors=CardDefaults.cardColors(containerColor=CardWhite)) {
+                    Column(Modifier.padding(16.dp)) { Text(it.first,color=Muted,fontSize=12.sp); Text("R$ " + String.format(java.util.Locale("pt","BR"),"%.2f",it.second),fontSize=23.sp,color=PrimaryGreen,fontWeight=FontWeight.SemiBold) }
+                }
+            }
+        } else if (rows.isEmpty()) {
+            Card(colors=CardDefaults.cardColors(containerColor=CardWhite)) { Column(Modifier.fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) { Icon(Icons.Default.Inbox,null,tint=PrimaryGreen,modifier=Modifier.size(34.dp)); Text("Nenhum registro ainda",fontWeight=FontWeight.SemiBold); Text("Use Novo para adicionar informações.",color=Muted,fontSize=13.sp) } }
+        } else {
+            LazyColumn(verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                items(rows) { row ->
+                    Card(colors=CardDefaults.cardColors(containerColor=CardWhite),shape=RoundedCornerShape(13.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Text(row["name"] ?: row["description"] ?: row["person"] ?: ("Registro #" + (row["id"] ?: "")),fontWeight=FontWeight.SemiBold,color=TextDark)
+                            Text(when(section) {
+                                "Pedidos" -> (row["kind"] ?: "") + " • " + (row["status"] ?: "") + " • " + (row["due_date"] ?: "") + " • R$ " + (row["total"] ?: "0")
+                                "Peças" -> "Preço: R$ " + (row["price"] ?: "0") + " • Estoque: " + (row["stock"] ?: "0")
+                                "Estoque" -> (row["kind"] ?: "") + " • " + (row["color"] ?: "") + " • Saldo: " + (row["stock"] ?: "0") + " " + (row["unit"] ?: "")
+                                "Produção" -> "Quantidade: " + (row["qty"] ?: "") + " • Etapa: " + (row["status"] ?: "")
+                                "Despesas" -> (row["category"] ?: "") + " • R$ " + (row["amount"] ?: "0")
+                                "Compras" -> "Quantidade: " + (row["qty"] ?: "") + " • Total: R$ " + (row["total_cost"] ?: "0")
+                                else -> (row["reason"] ?: "") + " • " + (row["qty"] ?: "") + " • " + (row["created_at"] ?: "")
+                            },color=Muted,fontSize=12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (show) {
+        var name by remember { mutableStateOf("") }
+        var extra by remember { mutableStateOf("") }
+        var value by remember { mutableStateOf("") }
+        var qty by remember { mutableStateOf("0") }
+        var unit by remember { mutableStateOf("un") }
+        AlertDialog(onDismissRequest={show=false},title={Text("Novo " + section.lowercase())},text={
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name,{name=it},label={Text(when(section){"Peças"->"Nome da peça";"Estoque"->"Nome do material";"Despesas"->"Descrição";else->"ID da peça"})},singleLine=true)
+                if(section=="Peças") { OutlinedTextField(extra,{extra=it},label={Text("Descrição")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Preço de venda")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Estoque pronto")},singleLine=true) }
+                if(section=="Estoque") { OutlinedTextField(extra,{extra=it},label={Text("Tipo / categoria")},singleLine=true); OutlinedTextField(unit,{unit=it},label={Text("Unidade (g, m, un)")},singleLine=true); OutlinedTextField(qty,{qty=it},label={Text("Saldo inicial")},singleLine=true); OutlinedTextField(value,{value=it},label={Text("Estoque mínimo")},singleLine=true) }
+                if(section=="Despesas") { OutlinedTextField(value,{value=it},label={Text("Valor")},singleLine=true); OutlinedTextField(extra,{extra=it},label={Text("Categoria")},singleLine=true) }
+                if(section=="Produção") { Text("Peças: " + db.rows("SELECT id,name FROM products").joinToString { (it["id"] ?: "") + " - " + (it["name"] ?: "") }); OutlinedTextField(qty,{qty=it},label={Text("Quantidade")},singleLine=true) }
+            }
+        },confirmButton={TextButton(onClick={
+            when(section) {
+                "Peças" -> if(name.isNotBlank()) db.saveProduct(name,extra,"",value.toDoubleOrNull()?:0.0,qty.toDoubleOrNull()?:0.0,0.0)
+                "Estoque" -> if(name.isNotBlank()) db.saveMaterial(name,extra,"","",unit,qty.toDoubleOrNull()?:0.0,value.toDoubleOrNull()?:0.0,0.0)
+                "Despesas" -> if(name.isNotBlank() && (value.toDoubleOrNull()?:0.0)>0) db.saveExpense(name,value.toDouble(),extra)
+                "Produção" -> { val id=name.toLongOrNull(); val q=qty.toDoubleOrNull()?:0.0; if(id!=null&&q>0) db.addProduction(id,q) }
+            }
+            show=false; refresh++
+        }){Text("Salvar")}},dismissButton={TextButton(onClick={show=false}){Text("Cancelar")}})
     }
 }
