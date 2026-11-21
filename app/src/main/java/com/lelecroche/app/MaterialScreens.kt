@@ -1,5 +1,11 @@
 package com.lelecroche.app
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,11 +24,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import java.io.ByteArrayOutputStream
 
 private val StockGreen = Color(0xFF42634C)
 private val StockText = Color(0xFF161D19)
@@ -122,6 +130,19 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
     var initialQty by remember(id) { mutableStateOf("") }
     var initialCost by remember(id) { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    var photoId by remember(id) { mutableStateOf(current?.get("photo_id")?.toLongOrNull()) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            try {
+                val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: throw IllegalArgumentException("Não foi possível abrir a imagem.")
+                val ratio = minOf(1f, 800f / maxOf(bitmap.width, bitmap.height).toFloat())
+                val scaled = if (ratio < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true) else bitmap
+                val bytes = ByteArrayOutputStream().use { output -> scaled.compress(Bitmap.CompressFormat.JPEG, 82, output); output.toByteArray() }
+                photoId = repo.storePhoto("image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
+            } catch (e: Exception) { error = e.message ?: "Não foi possível carregar a foto." }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (id == null) "Novo material" else "Editar material") },
@@ -139,6 +160,14 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
                 }
                 if (unit != "un") OutlinedTextField(metersPerKg, { metersPerKg = it }, label = { Text("Metros por kg (necessário para converter kg/m)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(minimum, { minimum = it }, label = { Text("Estoque mínimo") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val photoData = remember(photoId) { photoId?.let { repo.photoBase64(it) } }
+                    val photoBytes = remember(photoData) { photoData?.let { Base64.decode(it, Base64.DEFAULT) } }
+                    val photoBitmap = remember(photoBytes) { photoBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } }
+                    if (photoBitmap != null) Image(photoBitmap.asImageBitmap(), contentDescription = "Foto do material", modifier = Modifier.size(72.dp))
+                    OutlinedButton(onClick = { photoPicker.launch("image/*") }) { Text(if (photoId == null) "Adicionar foto" else "Trocar foto") }
+                    if (photoId != null) TextButton(onClick = { photoId = null }) { Text("Remover") }
+                }
                 if (id == null) {
                     Divider()
                     Text("Estoque inicial (opcional)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -154,6 +183,7 @@ private fun MaterialEditorDialog(db: AppDatabase, repo: CrochetRepository, id: L
         confirmButton = { TextButton(onClick = {
             try {
                 val savedId = repo.saveMaterial(id, name, kind, color, brand, unit, stockDecimal(metersPerKg) ?: 0.0, stockDecimal(minimum) ?: 0.0)
+                repo.setMaterialPhoto(savedId, photoId)
                 val qty = stockDecimal(initialQty) ?: 0.0
                 val cost = stockDecimal(initialCost) ?: 0.0
                 if (id == null && qty > 0) repo.recordPurchase(savedId, qty, unit, cost, brand)
