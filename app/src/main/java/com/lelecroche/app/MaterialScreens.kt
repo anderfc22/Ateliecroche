@@ -37,7 +37,7 @@ private val StockText = Color(0xFF161D19)
 private val StockMuted = Color(0xFF424842)
 
 @Composable
-fun MaterialsScreen(modifier: Modifier = Modifier) {
+fun MaterialsScreen(modifier: Modifier = Modifier, openShoppingOnStart: Boolean = false) {
     val context = LocalContext.current
     val db = remember { AppDatabase(context.applicationContext) }
     val repo = remember { CrochetRepository(db) }
@@ -46,7 +46,7 @@ fun MaterialsScreen(modifier: Modifier = Modifier) {
     var actionId by remember { mutableStateOf<Long?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showInventory by remember { mutableStateOf(false) }
-    var showShopping by remember { mutableStateOf(false) }
+    var showShopping by remember { mutableStateOf(openShoppingOnStart) }
     var showHistory by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val materials = remember(refresh) { db.rows("SELECT * FROM materials WHERE active=1 ORDER BY name COLLATE NOCASE") }
