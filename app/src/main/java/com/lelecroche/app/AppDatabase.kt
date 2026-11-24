@@ -4,6 +4,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class Customer(val id: Long, val name: String, val phone: String, val notes: String)
 
@@ -76,5 +78,106 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, "lele_croche.db"
     fun deleteRow(table:String,id:Long){writableDatabase.delete(table,"id=?",arrayOf(id.toString()))}
     fun stockMove(id:Long,qty:Double,note:String){val db=writableDatabase;db.beginTransaction();try{db.execSQL("UPDATE materials SET stock=stock+? WHERE id=?",arrayOf(qty,id));db.insertOrThrow("stock_movements",null,cv("material_id" to id,"qty" to qty,"reason" to if(qty>=0)"entrada" else "saida","note" to note,"created_at" to now()));db.setTransactionSuccessful()}finally{db.endTransaction()}}
     fun purchase(id:Long,qty:Double,total:Double,supplier:String){val db=writableDatabase;db.beginTransaction();try{db.insertOrThrow("purchases",null,cv("material_id" to id,"qty" to qty,"total_cost" to total,"supplier" to supplier,"created_at" to now()));db.execSQL("UPDATE materials SET stock=stock+?,avg_cost=CASE WHEN stock+?>0 THEN ((stock*avg_cost)+?)/(stock+?) ELSE avg_cost END WHERE id=?",arrayOf(qty,qty,total,qty,id));db.insertOrThrow("stock_movements",null,cv("material_id" to id,"qty" to qty,"reason" to "compra","note" to supplier,"created_at" to now()));db.insertOrThrow("expenses",null,cv("description" to "Compra de material #$id","amount" to total,"category" to "Materiais","created_at" to now()));db.setTransactionSuccessful()}finally{db.endTransaction()}}
+
+    companion object {
+        val BACKUP_TABLES = listOf("materials", "products", "customers", "orders", "recipe_items", "order_items", "payments", "stock_movements", "production_orders", "purchases", "expenses", "incomes", "shopping_list", "photos", "catalog_hits", "settings")
+    }
+
+    fun exportTableJson(table: String): JSONArray {
+        require(table in BACKUP_TABLES) { "Tabela não permitida." }
+        val result = JSONArray()
+        val order = if (table == "settings") "skey" else "id"
+        readableDatabase.rawQuery("SELECT * FROM $table ORDER BY $order", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val row = JSONObject()
+                for (i in 0 until cursor.columnCount) {
+                    if (cursor.isNull(i)) {
+                        row.put(cursor.getColumnName(i), JSONObject.NULL)
+                    } else {
+                        when (cursor.getType(i)) {
+                            android.database.Cursor.FIELD_TYPE_INTEGER -> row.put(cursor.getColumnName(i), cursor.getLong(i))
+                            android.database.Cursor.FIELD_TYPE_FLOAT -> row.put(cursor.getColumnName(i), cursor.getDouble(i))
+                            android.database.Cursor.FIELD_TYPE_BLOB -> row.put(cursor.getColumnName(i), android.util.Base64.encodeToString(cursor.getBlob(i), android.util.Base64.NO_WRAP))
+                            else -> row.put(cursor.getColumnName(i), cursor.getString(i))
+                        }
+                    }
+                }
+                result.put(row)
+            }
+        }
+        return result
+    }
+
+    fun restoreBackup(root: JSONObject) {
+        val version = root.optInt("schema_version", 1)
+        require(version == 1) { "Versão de backup não suportada." }
+        val payload = linkedMapOf<String, JSONArray>()
+        for (table in BACKUP_TABLES) {
+            val value = root.opt(table)
+            if (value == null || value == JSONObject.NULL) {
+                require(table == "photos" || table == "catalog_hits") { "Backup incompleto: falta a tabela $table." }
+                payload[table] = JSONArray()
+            } else {
+                require(value is JSONArray) { "Formato inválido na tabela $table." }
+                payload[table] = value
+            }
+        }
+
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Valida todas as colunas antes de apagar qualquer registro.
+            val allowedColumns = BACKUP_TABLES.associateWith { table ->
+                db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+                    buildSet {
+                        while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                    }
+                }
+            }
+            for ((table, array) in payload) {
+                for (i in 0 until array.length()) {
+                    val row = array.optJSONObject(i) ?: throw IllegalArgumentException("Registro inválido em $table.")
+                    val keys = row.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        require(key in allowedColumns.getValue(table)) { "Coluna desconhecida em $table: $key." }
+                        val value = row.get(key)
+                        require(value === JSONObject.NULL || value is String || value is Number || value is Boolean) {
+                            "Valor inválido em $table.$key."
+                        }
+                    }
+                }
+            }
+
+            BACKUP_TABLES.asReversed().forEach { db.delete(it, null, null) }
+            // A ordem respeita os registros-base antes dos registros que os referenciam.
+            for (table in BACKUP_TABLES) {
+                val array = payload.getValue(table)
+                for (i in 0 until array.length()) {
+                    val row = array.getJSONObject(i)
+                    val values = ContentValues()
+                    val keys = row.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        when (val value = row.get(key)) {
+                            JSONObject.NULL -> values.putNull(key)
+                            is String -> values.put(key, value)
+                            is Int -> values.put(key, value)
+                            is Long -> values.put(key, value)
+                            is Double -> values.put(key, value)
+                            is Float -> values.put(key, value)
+                            is Number -> values.put(key, value.toDouble())
+                            is Boolean -> values.put(key, if (value) 1 else 0)
+                        }
+                    }
+                    db.insertOrThrow(table, null, values)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     fun customerCount()=count("customers")
 }
