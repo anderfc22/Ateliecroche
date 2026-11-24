@@ -27,7 +27,7 @@ object CrochetEngine {
     }
 
     fun calculateCost(recipe: List<RecipeLine>, laborMinutes: Double, hourlyRate: Double, overheadPerPiece: Double): CostBreakdown {
-        require(laborMinutes >= 0 && hourlyRate >= 0 && overheadPerPiece >= 0)
+        require(laborMinutes.isFinite() && hourlyRate.isFinite() && overheadPerPiece.isFinite() && laborMinutes >= 0 && hourlyRate >= 0 && overheadPerPiece >= 0)
         val materials = recipe.sumOf { line ->
             require(line.quantity > 0) { "Quantidade da receita deve ser maior que zero" }
             convert(line.material, line.quantity, line.unit) * line.material.averageCost
@@ -38,16 +38,16 @@ object CrochetEngine {
 
     fun calculatePricing(cost: CostBreakdown, marginPercent: Double?, defaultMarginPercent: Double, manualPrice: Double?): ProductPricing {
         val margin = marginPercent ?: defaultMarginPercent
-        require(margin >= 0)
+        require(margin.isFinite() && margin >= 0)
         val suggested = cost.total * (1.0 + margin / 100.0)
         val final = manualPrice ?: suggested
-        require(final >= 0)
+        require(final.isFinite() && final >= 0)
         val realMargin = if (final > 0) (final - cost.total) / final * 100.0 else 0.0
         return ProductPricing(cost, round2(suggested), round2(final), round1(realMargin))
     }
 
     fun weightedAverageCost(currentStock: Double, currentAverage: Double, purchaseQty: Double, purchaseTotal: Double): Double {
-        require(currentStock >= 0 && currentAverage >= 0 && purchaseQty > 0 && purchaseTotal >= 0)
+        require(currentStock.isFinite() && currentAverage.isFinite() && purchaseQty.isFinite() && purchaseTotal.isFinite() && currentStock >= 0 && currentAverage >= 0 && purchaseQty > 0 && purchaseTotal >= 0)
         val totalQty = currentStock + purchaseQty
         return if (totalQty > 0) (currentStock * currentAverage + purchaseTotal) / totalQty else currentAverage
     }
@@ -56,7 +56,7 @@ object CrochetEngine {
         if (minimumStock > 0) round3((minimumStock * 2.0 - currentStock).coerceAtLeast(0.0)) else 0.0
 
     fun stockAfter(currentStock: Double, delta: Double, materialName: String, unit: String): Double {
-        val next = currentStock + delta
+        require(currentStock.isFinite() && delta.isFinite()) { "Movimentação de estoque inválida" }; val next = currentStock + delta
         require(next >= -EPSILON) { "Estoque insuficiente de '$materialName': há ${formatQuantity(currentStock)} $unit, faltam ${formatQuantity(-next)} $unit" }
         return round6(next.coerceAtLeast(0.0))
     }
@@ -76,22 +76,22 @@ object CrochetEngine {
     }
 
     fun productionDemand(recipe: List<RecipeLine>, productionQuantity: Double): Map<Long, Double> {
-        require(productionQuantity > 0)
+        require(productionQuantity.isFinite() && productionQuantity > 0)
         return recipe.groupBy { it.material.id }.mapValues { (_, lines) -> lines.sumOf { convert(it.material, it.quantity, it.unit) * productionQuantity } }
     }
 
     fun validateProductionMaterials(demand: Map<Material, Double>) {
-        val missing = demand.filter { (material, needed) -> material.stock + EPSILON < needed }
+        val missing = demand.filter { (material, needed) -> require(needed.isFinite() && needed >= 0); material.stock.isFinite() && material.stock + EPSILON < needed }
         require(missing.isEmpty()) { "Material insuficiente para concluir: " + missing.entries.joinToString("; ") { (m, q) -> "${m.name} (faltam ${formatQuantity(q - m.stock)} ${m.unit})" } }
     }
 
     fun validateDeposit(deposit: Double, total: Double) {
-        require(deposit >= 0) { "Sinal inválido" }
+        require(deposit.isFinite() && total.isFinite() && deposit >= 0 && total >= 0) { "Sinal inválido" }
         require(deposit <= total + EPSILON) { "Sinal maior que o total do pedido" }
     }
 
     fun validatePayment(amount: Double, balance: Double, paid: Double) {
-        require(amount.isFinite() && amount != 0.0) { "Valor deve ser diferente de zero" }
+        require(amount.isFinite() && balance.isFinite() && paid.isFinite() && amount != 0.0) { "Valor deve ser diferente de zero" }
         require(!(amount > 0 && amount > balance + EPSILON)) { "Valor maior que o saldo do pedido" }
         require(!(amount < 0 && -amount > paid + EPSILON)) { "Estorno maior que o total já pago" }
     }
