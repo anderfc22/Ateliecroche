@@ -49,7 +49,8 @@ class CrochetEngineTest {
 
     @Test fun productionMovesOnlyForward() {
         assertEquals("andamento", CrochetEngine.productionNext("fila"))
-        CrochetEngine.validateProductionTransition("fila", "acabamento")
+        CrochetEngine.validateProductionTransition("fila", "andamento")
+        CrochetEngine.validateProductionTransition("andamento", "acabamento")
     }
 
     @Test(expected = IllegalArgumentException::class)
