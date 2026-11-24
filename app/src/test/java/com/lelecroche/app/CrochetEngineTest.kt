@@ -63,6 +63,22 @@ class CrochetEngineTest {
         CrochetEngine.validateProductionTransition("fila", "pronta")
     }
 
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInfinitePurchaseCostInputs() {
+        CrochetEngine.weightedAverageCost(1.0, 10.0, 1.0, Double.POSITIVE_INFINITY)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInfiniteStockMovements() {
+        CrochetEngine.stockAfter(1.0, Double.POSITIVE_INFINITY, "Fio", "kg")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInfiniteProductionQuantity() {
+        CrochetEngine.productionDemand(emptyList(), Double.POSITIVE_INFINITY)
+    }
+
     @Test fun validatesDepositsPaymentsAndRefunds() {
         CrochetEngine.validateDeposit(30.0, 100.0)
         CrochetEngine.validatePayment(20.0, balance = 70.0, paid = 30.0)
