@@ -54,7 +54,7 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
                 Text("Peças", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = ProductText)
                 Text("${products.size} modelo(s) ativo(s)", color = ProductMuted, fontSize = 12.sp)
             }
-            Button(onClick = { editingId = null; showEditor = true }) { Icon(Icons.Default.Add, null); Text(" Nova") }
+            Button(onClick = { editingId = null; showEditor = true }, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(5.dp)); Text("Cadastrar peça", fontSize = 12.sp) }
         }
         Spacer(Modifier.height(12.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
@@ -62,7 +62,9 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
             Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Nenhuma peça cadastrada", fontWeight = FontWeight.SemiBold)
-                    Text("Cadastre seus modelos e suas receitas de materiais.", color = ProductMuted, fontSize = 13.sp)
+                    Text("Comece cadastrando uma peça. Você pode adicionar materiais e receita agora ou completar depois.", color = ProductMuted, fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { editingId = null; showEditor = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Cadastrar primeira peça") }
                 }
             }
         } else {
@@ -82,9 +84,21 @@ fun ProductsScreen(modifier: Modifier = Modifier) {
                                 Text("Custo: ${pricing?.cost?.total?.let(::productMoney) ?: "—"}  ·  Preço: ${pricing?.finalPrice?.let(::productMoney) ?: "—"}", color = ProductGreen, fontWeight = FontWeight.Medium, fontSize = 12.sp)
                                 if (p["in_catalog"] == "1") Text("No catálogo", color = ProductMuted, fontSize = 10.sp)
                             }
-                            IconButton(onClick = { editingId = id; showEditor = true }) { Icon(Icons.Default.Edit, "Editar", tint = ProductGreen) }
-                            IconButton(onClick = { try { repository.duplicateProduct(id); refresh++ } catch (e: Exception) { error = e.message } }) { Icon(Icons.Default.ContentCopy, "Duplicar", tint = ProductGreen) }
-                            IconButton(onClick = { try { repository.archiveProduct(id); refresh++ } catch (e: Exception) { error = e.message } }) { Icon(Icons.Default.DeleteOutline, "Arquivar", tint = MaterialTheme.colorScheme.error) }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { editingId = id; showEditor = true }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Icon(Icons.Default.Edit, null); Spacer(Modifier.width(4.dp)); Text("Editar", fontSize = 11.sp)
+                            }
+                            TextButton(onClick = { try { repository.duplicateProduct(id); refresh++ } catch (e: Exception) { error = e.message } }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Icon(Icons.Default.ContentCopy, null); Spacer(Modifier.width(4.dp)); Text("Duplicar", fontSize = 11.sp)
+                            }
+                            TextButton(onClick = { try { repository.archiveProduct(id); refresh++ } catch (e: Exception) { error = e.message } }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Icon(Icons.Default.DeleteOutline, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); Text("Arquivar", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }
