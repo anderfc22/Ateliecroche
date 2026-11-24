@@ -72,7 +72,7 @@ object CrochetEngine {
         if (target == "cancelada") return
         val from = productionFlow.indexOf(current)
         val to = productionFlow.indexOf(target)
-        require(to >= 0 && from >= 0 && to > from) { "Transição inválida: $current -> $target" }
+        require(to >= 0 && from >= 0 && to == from + 1) { "Transição inválida: $current -> $target" }
     }
 
     fun productionDemand(recipe: List<RecipeLine>, productionQuantity: Double): Map<Long, Double> {
