@@ -37,12 +37,13 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
     var deleteTarget by remember { mutableStateOf<Pair<String, Long>?>(null) }
     var deleteError by remember { mutableStateOf<String?>(null) }
     val incoming = remember(refresh, month) {
-        db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$month'") +
+        db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$month' AND amount>0") +
             db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$month'")
     }
     val outgoing = remember(refresh, month) {
         db.scalar("SELECT COALESCE(SUM(total_cost),0) FROM purchases WHERE substr(created_at,1,7)='$month'") +
-            db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE substr(created_at,1,7)='$month'")
+            db.scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE substr(created_at,1,7)='$month'") -
+            db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$month' AND amount<0")
     }
     val cash = remember(refresh, month) {
         db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)<='$month'") +
@@ -61,8 +62,8 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
     val marginPercent = if (incoming > 0) (incoming - outgoing) / incoming * 100.0 else 0.0
     val weeks = (0..3).map { index ->
         val weekEntries = entries.filter { row -> ((row["created_at"]?.substringAfterLast("-")?.take(2)?.toIntOrNull() ?: 1) - 1) / 7 == index }
-        val weekIn = weekEntries.filter { it["type"] == "payment" || it["type"] == "income" }.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
-        val weekOut = -weekEntries.filter { it["type"] == "purchase" || it["type"] == "expense" }.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
+        val weekIn = weekEntries.filter { it["type"] == "payment" || it["type"] == "income" }.sumOf { (it["amount"]?.toDoubleOrNull() ?: 0.0).coerceAtLeast(0.0) }
+        val weekOut = -weekEntries.filter { it["type"] == "purchase" || it["type"] == "expense" || (it["type"] == "payment" && (it["amount"]?.toDoubleOrNull() ?: 0.0) < 0) }.sumOf { it["amount"]?.toDoubleOrNull() ?: 0.0 }
         weekIn to weekOut
     }
     val bestWeek = weeks.indices.maxByOrNull { weeks[it].first } ?: 0
