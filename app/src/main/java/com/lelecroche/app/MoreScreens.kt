@@ -25,7 +25,7 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
     val db = remember { AppDatabase(context.applicationContext) }
     val repo = remember { CrochetRepository(db) }
     val sold = remember {
-        db.rows("SELECT p.id product_id,p.name,SUM(i.qty) qty,SUM(i.qty*i.unit_price) revenue,SUM(i.qty*i.unit_cost) cost FROM order_items i JOIN orders o ON o.id=i.order_id JOIN products p ON p.id=i.product_id WHERE o.status NOT IN ('cancelado','solicitado') GROUP BY i.product_id,p.name ORDER BY qty DESC")
+        db.rows("SELECT p.id product_id,p.name,SUM(i.qty) qty,SUM(i.qty*i.unit_price) revenue,SUM(i.qty*i.unit_cost) cost FROM order_items i JOIN orders o ON o.id=i.order_id JOIN products p ON p.id=i.product_id WHERE o.status='entregue' GROUP BY i.product_id,p.name ORDER BY qty DESC")
     }
     val products = remember { db.rows("SELECT id,name,stock FROM products WHERE active=1 ORDER BY name") }
     val margins = remember(products) { products.mapNotNull { p ->
@@ -76,7 +76,6 @@ fun ReportsScreen(modifier: Modifier = Modifier) {
                 ReportRow("Peças concluídas", String.format(Locale("pt","BR"), "%.0f", pieces))
                 ReportRow("Horas de trabalho", String.format(Locale("pt","BR"), "%.1f h", hours))
                 ReportRow("Peças por hora", if (hours > 0) String.format(Locale("pt","BR"), "%.2f", pieces / hours) else "0")
-                ReportRow("Faturamento por hora", if (hours > 0) moreMoney(revenue / hours) else moreMoney(0.0))
             }
         }
     }
