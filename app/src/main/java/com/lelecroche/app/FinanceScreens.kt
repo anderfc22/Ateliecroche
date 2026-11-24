@@ -86,7 +86,7 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(7.dp))
         Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column { Text("Margem do mês", color = Color(0xFF424842), fontSize = 10.sp); Text(String.format(Locale("pt","BR"), "%.1f%%", marginPercent), color = Color(0xFF42634C), fontWeight = FontWeight.SemiBold) }
+            Column { Text("Resultado de caixa (%)", color = Color(0xFF424842), fontSize = 10.sp); Text(String.format(Locale("pt","BR"), "%.1f%%", marginPercent), color = if (marginPercent >= 0) Color(0xFF42634C) else MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
             Column(horizontalAlignment = Alignment.End) { Text("Recebido no mês anterior", color = Color(0xFF424842), fontSize = 10.sp); Text(financeMoney(previousIncoming), fontWeight = FontWeight.SemiBold) }
         }
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
