@@ -58,7 +58,7 @@ fun FinanceScreen(modifier: Modifier = Modifier) {
         db.rows("SELECT * FROM (SELECT 'payment' type,p.id,p.amount,p.method,p.created_at,'Pagamento pedido #'||p.order_id title FROM payments p WHERE substr(p.created_at,1,7)='$month' UNION ALL SELECT 'income' type,i.id,i.amount,i.method,i.created_at,i.description title FROM incomes i WHERE substr(i.created_at,1,7)='$month' UNION ALL SELECT 'purchase' type,pu.id,-pu.total_cost amount,pu.method,pu.created_at,'Compra · '||m.name title FROM purchases pu JOIN materials m ON m.id=pu.material_id WHERE substr(pu.created_at,1,7)='$month' UNION ALL SELECT 'expense' type,e.id,-e.amount amount,e.method,e.created_at,e.description title FROM expenses e WHERE substr(e.created_at,1,7)='$month') ORDER BY created_at DESC")
     }
     val previousMonth = shiftFinanceMonth(month, -1)
-    val previousIncoming = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$previousMonth'") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$previousMonth'")
+    val previousIncoming = db.scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE substr(created_at,1,7)='$previousMonth' AND amount>0") + db.scalar("SELECT COALESCE(SUM(amount),0) FROM incomes WHERE substr(created_at,1,7)='$previousMonth'")
     val marginPercent = if (incoming > 0) (incoming - outgoing) / incoming * 100.0 else 0.0
     val weeks = (0..3).map { index ->
         val weekEntries = entries.filter { row -> ((row["created_at"]?.substringAfterLast("-")?.take(2)?.toIntOrNull() ?: 1) - 1) / 7 == index }
