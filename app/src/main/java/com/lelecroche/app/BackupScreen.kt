@@ -1,4 +1,4 @@
-package com.lelecroche
+package com.lelecroche.app
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
