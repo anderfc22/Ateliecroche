@@ -57,6 +57,11 @@ class CrochetEngineTest {
         CrochetEngine.validateProductionTransition("acabamento", "andamento")
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsSkippingProductionStages() {
+        CrochetEngine.validateProductionTransition("fila", "pronta")
+    }
+
     @Test fun validatesDepositsPaymentsAndRefunds() {
         CrochetEngine.validateDeposit(30.0, 100.0)
         CrochetEngine.validatePayment(20.0, balance = 70.0, paid = 30.0)
