@@ -45,7 +45,8 @@ private fun LeleCrocheApp() {
         Destination("Encomendas", Icons.Default.ReceiptLong),
         Destination("Peças", Icons.Default.Cottage),
         Destination("Estoque", Icons.Default.Inventory2),
-        Destination("Financeiro", Icons.Default.AccountBalanceWallet)
+        Destination("Financeiro", Icons.Default.AccountBalanceWallet),
+        Destination("Mais", Icons.Default.MoreHoriz)
     )
     var selected by remember { mutableIntStateOf(0) }
     var moreSection by remember { mutableStateOf<String?>(null) }
